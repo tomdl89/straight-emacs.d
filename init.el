@@ -154,6 +154,10 @@
   :config
   (setq ccm-recenter-at-end-of-file t))
 
+(use-package projectile)
+(use-package projectile-git-autofetch
+  :init (projectile-git-autofetch-mode 1))
+
 (use-package super-save
   :init (super-save-mode +1)
   :config
@@ -236,7 +240,13 @@
 	   "("      'evil-previous-open-paren
 	   ")"      'evil-next-close-paren))
 
-(use-package clojure-mode)
+(use-package flycheck
+  :init (global-flycheck-mode)
+  :config (setq flycheck-indication-mode nil))
+(use-package flycheck-clj-kondo)
+
+(use-package clojure-mode
+  :config (require 'flycheck-clj-kondo))
 (use-package cider)
 (use-package clj-refactor)
 

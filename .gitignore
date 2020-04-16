@@ -4,3 +4,4 @@
 # Except for
 !.gitignore
 !init.el
+!.dir-locals.el
