@@ -33,6 +33,7 @@
 (add-hook 'window-setup-hook 'toggle-frame-fullscreen t)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
+(blink-cursor-mode -1)
 
 (use-package zerodark-theme
   :config (load-theme 'zerodark t))
@@ -43,7 +44,13 @@
 (use-package general)
 
 (use-package evil
-  :config (evil-mode 1)
+  :config
+  (evil-mode 1)
+  (setq evil-cross-lines t
+	evil-search-module 'evil-search
+	evil-ex-search-vim-style-regexp t
+	evil-magic 'very-magic
+	evil-want-Y-yank-to-eol t)
   :general
   (:states '(normal motion visual)
 	   "m"               'evil-next-visual-line
@@ -60,6 +67,8 @@
 	   "<S-tab>"         'evil-jump-backward
 	   "<S-iso-lefttab>" 'evil-jump-backward))
 
+(use-package evil-anzu)
+
 (use-package evil-exchange
   :general (:states '(normal visual) "gx" 'evil-exchange))
 
@@ -68,16 +77,20 @@
 
 (use-package evil-fringe-mark
   :hook (prog-mode . evil-fringe-mark-mode)
-  :config
-  (setq-default right-fringe-width 16)
-  (setq-default evil-fringe-mark-side 'right-fringe)
-  (setq-default evil-fringe-mark-show-special t))
+  :config (setq-default right-fringe-width 16
+			evil-fringe-mark-side 'right-fringe
+			evil-fringe-mark-show-special t))
 
 (use-package evil-quickscope
   :hook (prog-mode . evil-quickscope-mode))
 
 (use-package evil-owl
   :hook (prog-mode . evil-owl-mode))
+
+(use-package evil-traces
+  :init
+  (evil-traces-mode)
+  (evil-traces-use-diff-faces))
 
 (use-package which-key
   :config (which-key-mode))
@@ -104,12 +117,12 @@
 
 (use-package company
   :config
-  (setq company-idle-delay 0.5)
-  (setq comapny-show-numbers t)
-  (setq company-tooltip-limit 10)
-  (setq company-minimum-prefix-length 2)
-  (setq company-tooltip-align-annotations t)
-  (setq company-tooltip-flip-when-above t)
+  (setq company-idle-delay 0.5
+	comapny-show-numbers t
+	company-tooltip-limit 10
+	company-minimum-prefix-length 2
+	company-tooltip-align-annotations t
+	company-tooltip-flip-when-above t)
   (global-company-mode 1))
 
 (use-package magit)
@@ -129,10 +142,9 @@
 
 (use-package ace-window
   :general ("C-<tab>" 'ace-window)
-  :config
-  (setq aw-dispatch-always t)
-  (setq aw-keys '(?n ?i ?h ?y ?l ?r ?t ?e ?s ?a ?g ?w ?d))
-  (setq aw-scope 'frame))
+  :config (setq aw-dispatch-always t
+		aw-keys '(?n ?i ?h ?y ?l ?r ?t ?e ?s ?a ?g ?w ?d)
+		aw-scope 'frame))
 
 (setq split-height-threshold 200)
 
@@ -151,7 +163,42 @@
 (put 'narrow-to-page 'disabled nil)
 (put 'narrow-to-defun 'disabled nil)
 
+(recentf-mode +1)
+(setq recentf-max-menu-items 200
+      recentf-max-saved-items 200)
+(run-at-time 300 300 'recentf-save-list)
+
+;; Set column after which text is highlighted
+(setq whitespace-line-column 100)
+
+;; Set gdefault for substitutions
+(setq-default evil-ex-substitute-global t)
+
+;; Use anonymous start buffer
+(defun anon-note ()
+  (interactive)
+  (get-buffer-create "**"))
+(setq initial-buffer-choice 'anon-note)
+
+(use-package highlight-indent-guides
+  :hook (prog-mode . highlight-indent-guides-mode)
+  :config (setq highlight-indent-guides-auto-odd-face-perc 20
+		highlight-indent-guides-auto-even-face-perc 20
+		highlight-indent-guides-auto-character-face-perc 5
+		highlight-indent-guides-character ?\u2502
+		highlight-indent-guides-method 'character
+		highlight-indent-guides-responsive 'top))
+
+(use-package highlight-thing
+  :config (setq highlight-thing-delay-seconds 0.3))
+
 (use-package midnight)
+
+(use-package org-bullets
+  :hook (org-mode . org-bullets-mode))
+
+(use-package diff-hl
+  :init (global-diff-hl-mode))
 
 (defun conditionally-enable-smartparens-mode ()
   "Enable `smartparens-mode' in the minibuffer, during `eval-expression'."
@@ -178,11 +225,23 @@
   :hook
   (lisp-mode . evil-cleverparens-mode)
   (emacs-lisp-mode . evil-cleverparens-mode)
-  (clojure-mode . evil-cleverparens-mode))
+  (clojure-mode . evil-cleverparens-mode)
+  :general
+  (:states '(normal visual)
+	   :keymaps '(global evil-cleverparens-mode-map)
+	   "{"      'evil-backward-paragraph
+	   "}"      'evil-forward-paragraph
+	   "M-l"    'linum-mode
+	   "X"      'fixup-whitespace
+	   "("      'evil-previous-open-paren
+	   ")"      'evil-next-close-paren))
 
 (use-package clojure-mode)
 (use-package cider)
 (use-package clj-refactor)
+
+(use-package adoc-mode
+  :init (add-to-list 'auto-mode-alist (cons "\\.txt\\'" 'adoc-mode)))
 
 (defun open-init ()
   (interactive)
