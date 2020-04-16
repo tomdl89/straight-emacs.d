@@ -44,7 +44,7 @@
 (use-package general)
 
 (use-package evil
-  :config
+  :init
   (evil-mode 1)
   (setq evil-cross-lines t
 	evil-search-module 'evil-search
@@ -57,17 +57,21 @@
 	   "u"               'evil-previous-visual-line
 	   "n"               'evil-backward-char
 	   "h"               'evil-forward-char
-	   "k"               'evil-search-next
-	   "K"               'evil-search-previous
+	   "k"               'evil-ex-search-next
+	   "K"               'evil-ex-search-previous
 	   "l"               'evil-set-marker
 	   "j"               'undo-tree-undo
 	   "gm"              'evil-next-line
 	   "gu"              'evil-previous-line
 	   "gj"              'evil-downcase
 	   "<S-tab>"         'evil-jump-backward
-	   "<S-iso-lefttab>" 'evil-jump-backward))
+	   "<S-iso-lefttab>" 'evil-jump-backward
+	   "/"               'evil-ex-search-forward
+	   "?"               'evil-ex-search-backward
+	   "<return>"        'evil-ex-nohighlight))
 
-(use-package evil-anzu)
+(use-package evil-anzu
+  :init (global-anzu-mode))
 
 (use-package evil-exchange
   :general (:states '(normal visual) "gx" 'evil-exchange))
@@ -247,11 +251,22 @@
 
 (use-package clojure-mode
   :config (require 'flycheck-clj-kondo))
+(use-package clojure-mode-extra-font-locking)
 (use-package cider)
 (use-package clj-refactor)
 
 (use-package adoc-mode
   :init (add-to-list 'auto-mode-alist (cons "\\.txt\\'" 'adoc-mode)))
+
+(use-package scss-mode
+  :init (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode)))
+
+(use-package lsp-mode)
+
+(use-package csv-mode)
+
+(use-package dockerfile-mode
+  :init (add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-mode)))
 
 (defun open-init ()
   (interactive)
