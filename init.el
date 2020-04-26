@@ -36,10 +36,28 @@
 (blink-cursor-mode -1)
 
 (use-package zerodark-theme
-  :config (load-theme 'zerodark t))
+  :config
+  (load-theme 'zerodark t)
+  (set-face-attribute 'default nil :height 100 :family "Fira Code"))
 
 (use-package doom-modeline
-  :config (doom-modeline-mode 1))
+  :config (doom-modeline-mode 1)
+  (doom-modeline-def-segment purpose-status
+    (let ((pms (purpose--modeline-string)))
+      (and (string-match "[#!]+" pms)
+	   (match-string 0       pms))))
+  (doom-modeline-def-modeline 'tomline
+    '(bar workspace-name window-number modals matches
+	  buffer-info " " purpose-status remote-host selection-info)
+    '(objed-state persp-name irc mu4e github debug lsp minor-modes
+		  input-method " " major-mode process vcs checker))
+  (defun setup-custom-doom-modeline ()
+    (doom-modeline-set-modeline 'tomline 'default))
+  (add-hook 'doom-modeline-mode-hook 'setup-custom-doom-modeline)
+  (setq doom-modeline-height 1)
+  (set-face-attribute 'mode-line nil :height 100)
+  (setq doom-modeline-buffer-file-name-style 'truncate-except-project)
+  (setq which-function-mode nil))
 
 (use-package general)
 
@@ -51,24 +69,23 @@
 	evil-ex-search-vim-style-regexp t
 	evil-magic 'very-magic
 	evil-want-Y-yank-to-eol t)
-  :general
-  (:states '(normal motion visual)
-	   "m"               'evil-next-visual-line
-	   "u"               'evil-previous-visual-line
-	   "n"               'evil-backward-char
-	   "h"               'evil-forward-char
-	   "k"               'evil-ex-search-next
-	   "K"               'evil-ex-search-previous
-	   "l"               'evil-set-marker
-	   "j"               'undo-tree-undo
-	   "gm"              'evil-next-line
-	   "gu"              'evil-previous-line
-	   "gj"              'evil-downcase
-	   "<S-tab>"         'evil-jump-backward
-	   "<S-iso-lefttab>" 'evil-jump-backward
-	   "/"               'evil-ex-search-forward
-	   "?"               'evil-ex-search-backward
-	   "<return>"        'evil-ex-nohighlight))
+  :general (:states           '(normal motion visual)
+            "m"               'evil-next-visual-line
+            "u"               'evil-previous-visual-line
+            "n"               'evil-backward-char
+            "h"               'evil-forward-char
+            "k"               'evil-ex-search-next
+            "K"               'evil-ex-search-previous
+            "l"               'evil-set-marker
+            "j"               'undo-tree-undo
+            "gm"              'evil-next-line
+            "gu"              'evil-previous-line
+            "gj"              'evil-downcase
+            "<S-tab>"         'evil-jump-backward
+            "<S-iso-lefttab>" 'evil-jump-backward
+            "/"               'evil-ex-search-forward
+            "?"               'evil-ex-search-backward
+            "<return>"        'evil-ex-nohighlight))
 
 (use-package evil-anzu
   :init (global-anzu-mode))
@@ -111,8 +128,8 @@
    "C-h v" 'counsel-describe-variable
    "C-h f" 'counsel-describe-function)
   (:states '(emacs normal insert visual)
-	   "<f3>r" 'counsel-recentf
-	   "<f3>g" 'counsel-git)
+   "<f3>r" 'counsel-recentf
+   "<f3>g" 'counsel-git)
   (:keymaps 'minibuffer-local-map "C-r" 'counsel-minibuffer-history))
 
 (use-package avy
@@ -129,7 +146,25 @@
 	company-tooltip-flip-when-above t)
   (global-company-mode 1))
 
-(use-package magit)
+(use-package magit
+  :general (:keymaps   '(magit-mode-map
+		         magit-file-section-map
+		         magit-unstaged-section-map
+		         magit-staged-section-map
+		         magit-hunk-section-map)
+	    "u"        'evil-previous-line
+	    "C-u"      'magit-unstage
+	    "m"        'evil-next-line
+	    "<C-m>"    'magit-merge ;; This will bind RET in terminal mode
+	    "<return>" 'magit-visit-thing
+	    "SPC"      'avy-goto-asterisk
+	    "<C-tab>"  'ace-window
+	    "£"        'switch-buffer-without-purpose
+	    "<f3><f3>" 'find-file-without-purpose
+	    "<f3>g"    'counsel-git
+	    "<f3>p"    'purpose-find-file-overload
+	    "<f3>r"    'counsel-recentf
+	    "<f3>e"    'find-file-emacs-personal-dir))
 
 (use-package restart-emacs)
 
@@ -139,7 +174,17 @@
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "<f3><f3>" 'find-file-without-purpose
-	    "<f3>p"    'purpose-find-file-overload))
+	    "<f3>p"    'purpose-find-file-overload
+	    "<f7>"     'purpose-load-window-layout
+	    "<C-f7>"   'purpose-save-window-layout)
+  :init (purpose-mode)
+  :config
+  (add-to-list 'purpose-user-mode-purposes '(js2-mode . js))
+  (add-to-list 'purpose-user-mode-purposes '(clojure-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(clojurec-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
+  (purpose-compile-user-configuration))
 
 (use-package windmove
   :config (windmove-default-keybindings))
@@ -182,6 +227,9 @@
 ;; Set gdefault for substitutions
 (setq-default evil-ex-substitute-global t)
 
+;; Disable auto-revert messages
+(setq auto-revert-verbose nil)
+
 ;; Use anonymous start buffer
 (defun anon-note ()
   (interactive)
@@ -197,8 +245,11 @@
 		highlight-indent-guides-method 'character
 		highlight-indent-guides-responsive 'top))
 
+(use-package hi-lock
+  :config (set-face-attribute 'hi-yellow nil :background "#4e5565" :foreground "#abb2bf"))
 (use-package highlight-thing
-  :config (setq highlight-thing-delay-seconds 0.3))
+  :config (setq highlight-thing-delay-seconds 0.3)
+  :general (:states 'normal "C-8" 'highlight-thing-mode))
 
 (use-package midnight)
 
@@ -215,34 +266,31 @@
 
 (use-package smartparens
   :hook
-  (lisp-mode . smartparens-mode)
-  (emacs-lisp-mode . smartparens-mode)
-  (clojure-mode . smartparens-mode)
+  (prog-mode . smartparens-mode)
+  (cider-repl-mode . smartparens-mode)
   (minibuffer-setup . conditionally-enable-smartparens-mode)
   :config
   (require 'smartparens-config)
   (setq smartparens-strict-mode t)
   (show-smartparens-global-mode t)
   :general (:states '(normal insert)
-		    "C-." 'sp-forward-slurp-sexp
-		    "C-," 'sp-backward-slurp-sexp
-		    "C->" 'sp-forward-barf-sexp
-		    "C-<" 'sp-backward-barf-sexp))
+	    "C-."   'sp-forward-slurp-sexp
+	    "C-,"   'sp-backward-slurp-sexp
+	    "C->"   'sp-forward-barf-sexp
+	    "C-<"   'sp-backward-barf-sexp))
 
 (use-package evil-cleverparens
   :hook
-  (lisp-mode . evil-cleverparens-mode)
-  (emacs-lisp-mode . evil-cleverparens-mode)
-  (clojure-mode . evil-cleverparens-mode)
-  :general
-  (:states '(normal visual)
-	   :keymaps '(global evil-cleverparens-mode-map)
-	   "{"      'evil-backward-paragraph
-	   "}"      'evil-forward-paragraph
-	   "M-l"    'linum-mode
-	   "X"      'fixup-whitespace
-	   "("      'evil-previous-open-paren
-	   ")"      'evil-next-close-paren))
+  (prog-mode . evil-cleverparens-mode)
+  (cider-repl-mode . evil-cleverparens-mode)
+  :general (:states  '(normal visual)
+            :keymaps '(global evil-cleverparens-mode-map)
+            "{"      'evil-backward-paragraph
+            "}"      'evil-forward-paragraph
+            "M-l"    'linum-mode
+            "X"      'fixup-whitespace
+            "("      'evil-previous-open-paren
+            ")"      'evil-next-close-paren))
 
 (use-package flycheck
   :init (global-flycheck-mode)
@@ -252,7 +300,8 @@
 (use-package clojure-mode
   :config (require 'flycheck-clj-kondo))
 (use-package clojure-mode-extra-font-locking)
-(use-package cider)
+(use-package cider
+  :config (add-to-list 'exec-path "~/bin/"))
 (use-package clj-refactor)
 
 (use-package adoc-mode
@@ -261,12 +310,35 @@
 (use-package scss-mode
   :init (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode)))
 
-(use-package lsp-mode)
+(use-package lsp-mode
+  :config (setq lsp-enable-snippet nil)
+  (dolist (hook '(rjsx-mode-hook
+		  js2-mode-hook
+		  clojure-mode-hook
+		  clojurec-mode-hook
+		  clojurescript-mode-hook))
+    ;;(add-hook hook (lambda () (lsp-ui-sideline-enable nil)))
+    (add-hook hook 'lsp)))
 
 (use-package csv-mode)
 
 (use-package dockerfile-mode
   :init (add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-mode)))
+
+(use-package auctex
+  :config 
+  (defvar tex-fold-key-mode-map
+    (make-keymap) "tex-fold-mode keymap.")
+  (define-minor-mode tex-fold-key-mode
+    "Mode to allow keybindings for tex folding"
+    nil ;; Init-value
+    " tex-folding"
+    tex-fold-key-mode-map)
+  :hook (TeX-mode . tex-fold-key-mode)
+  :general (:states  'normal
+	    :keymaps 'tex-fold-key-mode-map
+	    "zc"     'TeX-fold-dwim
+	    "zo"     'TeX-fold-dwim))
 
 (defun open-init ()
   (interactive)
@@ -275,14 +347,18 @@
 ;; Non-package-specific rebindings
 (general-def
   :keymaps '(override normal insert)
-  "C-c ESC"  'ignore
-  "<f5>"     'balance-windows
-  "M-£"      'kill-this-buffer
-  "C-M-£"    'kill-some-buffers
-  "<f3>i"    'open-init)
+  "C-c ESC"   'ignore
+  "<f5>"      'balance-windows
+  "M-£"       'kill-this-buffer
+  "C-M-£"     'kill-some-buffers
+  "<f3>i"     'open-init
+  "C-a"       'mark-whole-buffer
+  "<C-up>"    'enlarge-window
+  "<C-down>"  'shrink-window
+  "<C-left>"  'enlarge-window-horizontally
+  "<C-right>" 'shrink-window-horizontally)
 (general-def 'override "<escape>" 'keyboard-escape-quit)
 (general-def 'ctl-x-map [escape] 'ignore)
-
 (defun evil-insert-line-below-and-above ()
   "Open a line below and above the current line"
   (interactive)
@@ -291,3 +367,85 @@
   (evil-insert-newline-above)
   (evil-next-line))
 (general-def 'normal "C-o" 'evil-insert-line-below-and-above)
+
+;; Dired
+(general-def
+  :states  'normal
+  :keymaps 'dired-mode-map
+  "m"      'evil-next-line
+  "u"      'evil-previous-line
+  "n"      'evil-backward-char
+  "h"      'evil-forward-char
+  "l"      'dired-mark
+  "L"      'dired-unmark
+  "C-S-l"  'dired-do-load
+  "<SPC>"  'avy-goto-char)
+
+;; Custom functions
+(defun evil-paste-after-from-zero (count)
+  "Paste after from yank register, rather than unnamed register"
+  (interactive "P<x>") (evil-paste-after count ?0))
+(defun evil-paste-before-from-zero (count)
+  "Paste before from yank register, rather than unnamed register"
+  (interactive "P<x>") (evil-paste-before count ?0))
+(general-def
+  :states           '(normal visual)
+  :keymaps          '(global evil-mc-key-map)
+  "C-p"             'evil-paste-after-from-zero
+  "C-S-p"           'evil-paste-before-from-zero)
+
+(evil-define-motion evil-search-symbol-forward (count &optional symbol)
+  "Search forward for SYMBOL under point."
+  :jump t
+  :type exclusive
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     evil-symbol-word-search))
+  (dotimes (var (or count 1))
+    (evil-search-word t nil t)))
+
+(evil-define-motion evil-search-symbol-backward (count &optional symbol)
+  "Search backward for SYMBOL under point."
+  :jump t
+  :type exclusive
+  (interactive (list (prefix-numeric-value current-prefix-arg)
+                     evil-symbol-word-search))
+  (dotimes (var (or count 1))
+    (evil-search-word nil nil t)))
+
+(general-def
+  :states '(normal motion visual)
+  "*"     'evil-search-symbol-forward
+  "M-*"   'evil-search-word-forward
+  "#"     'evil-search-symbol-backward
+  "M-#"   'evil-search-word-backward)
+
+(defun evil-execute-q-macro (count)
+  "Execute the q macro, the only one I use"
+  (interactive "P<x>") (evil-execute-macro count "@q"))
+(general-def 'normal "Q" 'evil-execute-q-macro)
+
+;; Differentiate C-m from RET
+(when (display-graphic-p)
+  (general-def input-decode-map [?\C-m] [C-m]))
+
+(defvar repl-history-navigation-mode-map
+  (make-keymap) "repl-history-navigation-mode keymap.")
+(general-def
+  :keymaps          'repl-history-navigation-mode-map
+  "<M-up>"          'cider-repl-previous-input
+  "<M-down>"        'cider-repl-next-input
+  "<C-return>"      'cider-repl-newline-and-indent)
+(define-minor-mode repl-history-navigation-mode
+  "Mode to allow keybindings for repl history navigation"
+  nil ;; Init-value
+  " repl-history-nav"
+  repl-history-navigation-mode-map)
+(add-hook 'cider-repl-mode-hook 'repl-history-navigation-mode)
+
+(general-unbind '(normal motion) "C-e")
+(general-unbind :keymaps '(evil-mc-key-map evil-normal-state-map) "C-n")
+
+(general-def
+  :keymaps 'cider-mode-map
+  "C-e"    'cider-eval-sexp-at-point
+  "C-n"    'cider-repl-set-ns)
