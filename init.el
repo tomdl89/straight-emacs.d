@@ -147,11 +147,12 @@
   (global-company-mode 1))
 
 (use-package magit
-  :general (:keymaps   '(magit-mode-map
-		         magit-file-section-map
-		         magit-unstaged-section-map
-		         magit-staged-section-map
-		         magit-hunk-section-map)
+  :general
+  (:keymaps '(magit-mode-map
+	      magit-file-section-map
+	      magit-unstaged-section-map
+	      magit-staged-section-map
+	      magit-hunk-section-map)
 	    "u"        'evil-previous-line
 	    "C-u"      'magit-unstage
 	    "m"        'evil-next-line
@@ -163,8 +164,11 @@
 	    "<f3><f3>" 'find-file-without-purpose
 	    "<f3>g"    'counsel-git
 	    "<f3>p"    'purpose-find-file-overload
-	    "<f3>r"    'counsel-recentf
-	    "<f3>e"    'find-file-emacs-personal-dir))
+	    "<f3>r"    'counsel-recentf)
+  (:states '(normal visual)
+	   "M-m m" 'magit-status
+	   "M-m l" 'magit-log
+	   "M-m b" 'magit-blame))
 
 (use-package restart-emacs)
 
@@ -205,7 +209,8 @@
 
 (use-package projectile)
 (use-package projectile-git-autofetch
-  :init (projectile-git-autofetch-mode 1))
+  :init (projectile-git-autofetch-mode 1)
+  :after (projectile))
 
 (use-package super-save
   :init (super-save-mode +1)
@@ -368,18 +373,24 @@
   (evil-next-line))
 (general-def 'normal "C-o" 'evil-insert-line-below-and-above)
 
-;; Dired
-(general-def
-  :states  'normal
-  :keymaps 'dired-mode-map
-  "m"      'evil-next-line
-  "u"      'evil-previous-line
-  "n"      'evil-backward-char
-  "h"      'evil-forward-char
-  "l"      'dired-mark
-  "L"      'dired-unmark
-  "C-S-l"  'dired-do-load
-  "<SPC>"  'avy-goto-char)
+(use-package dired
+  :straight nil :ensure nil 
+  :general (:states    'normal
+	    :keymaps   'dired-mode-map
+	    "<return>" 'dired-find-file
+	    "w"        'wdired-change-to-wdired-mode
+	    "m"        'dired-next-line
+	    "u"        'dired-previous-line
+	    "n"        'evil-backward-char
+	    "h"        'evil-forward-char
+	    "l"        'dired-mark
+	    "L"        'dired-unmark
+	    "C-S-l"    'dired-do-load
+	    "<SPC>"    'avy-goto-line)
+  :init (setq dired-listing-switches "-alBh"))
+(use-package all-the-icons-dired
+  :after (dired)
+  :hook (dired-mode . all-the-icons-dired-mode))
 
 ;; Custom functions
 (defun evil-paste-after-from-zero (count)
