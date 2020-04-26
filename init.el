@@ -146,6 +146,13 @@
 	company-tooltip-flip-when-above t)
   (global-company-mode 1))
 
+(use-package cl-lib
+  :init
+  (defun my-keyboard-escape-quit (fun &rest args)
+    (cl-letf (((symbol-function 'one-window-p) (lambda (&rest _) t)))
+      (apply fun args)))
+  (advice-add 'keyboard-escape-quit :around #'my-keyboard-escape-quit))
+
 (use-package magit
   :general
   (:keymaps '(magit-mode-map
@@ -168,9 +175,17 @@
   (:states '(normal visual)
 	   "M-m m" 'magit-status
 	   "M-m l" 'magit-log
-	   "M-m b" 'magit-blame))
+	   "M-m b" 'magit-blame)
+  (:keymaps 'magit-stash-section-map
+	    "k" 'magit-stash-drop)
+  (:keymaps 'git-rebase-mode-map
+            "m" 'evil-next-line
+	    "u" 'evil-previous-line)
+  ;; This must be done _after_ loading, hence :config
+  :config (add-hook 'after-save-hook 'magit-after-save-refresh-status t))
 
-(use-package restart-emacs)
+(use-package restart-emacs
+  :general ("<C-f5>" 'restart-emacs))
 
 (use-package window-purpose
   :general (:states    '(emacs normal insert) 
@@ -300,23 +315,42 @@
 (use-package flycheck
   :init (global-flycheck-mode)
   :config (setq flycheck-indication-mode nil))
-(use-package flycheck-clj-kondo)
+(use-package flycheck-clj-kondo
+  :init (global-flycheck-mode))
 
 (use-package clojure-mode
-  :config (require 'flycheck-clj-kondo))
+  :config (require 'flycheck-clj-kondo)
+  :general
+  (:keymaps 'clojure-mode-map
+   "C-j"    'cider-jack-in-clj&cljs
+   "C-S-r"  'lsp-rename)
+  (:keymaps 'clojure-mode-map
+   :states  'normal
+   "gd"     'cider-find-var))
 (use-package clojure-mode-extra-font-locking)
 (use-package cider
-  :config (add-to-list 'exec-path "~/bin/"))
+  :config
+  (add-to-list 'exec-path "~/bin/")
+  (setq cider-show-error-buffer nil)
+  :general (:keymaps 'cider-mode-map
+	    "C-n"    'cider-repl-set-ns))
 (use-package clj-refactor)
 
 (use-package adoc-mode
   :init (add-to-list 'auto-mode-alist (cons "\\.txt\\'" 'adoc-mode)))
 
+(use-package css-mode
+  :init (setq css-indent-offset 2
+	      css-fontify-colors nil))
+
 (use-package scss-mode
   :init (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode)))
 
 (use-package lsp-mode
-  :config (setq lsp-enable-snippet nil)
+  :config
+  (setq lsp-enable-snippet nil
+	lsp-enable-indentation nil
+	lsp-file-watch-threshold nil)
   (dolist (hook '(rjsx-mode-hook
 		  js2-mode-hook
 		  clojure-mode-hook
@@ -460,3 +494,15 @@
   :keymaps 'cider-mode-map
   "C-e"    'cider-eval-sexp-at-point
   "C-n"    'cider-repl-set-ns)
+
+(setq truncate-partial-width-windows t)
+(defun truncate-partial-width-windows-50 ()
+  (interactive)
+  (if (eq truncate-partial-width-windows t)
+      (setq truncate-partial-width-windows 50)
+    (setq truncate-partial-width-windows t)))
+(general-def "<f6>" 'truncate-partial-width-windows-50)
+
+(defun lein-clean ()
+  (interactive)
+  (shell-command "lein-clean"))
