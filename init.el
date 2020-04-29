@@ -33,12 +33,16 @@
 (add-hook 'window-setup-hook 'toggle-frame-fullscreen t)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
+(set-scroll-bar-mode 'right)
+(setq ring-bell-function 'ignore)
 (blink-cursor-mode -1)
+(defalias 'yes-or-no-p 'y-or-n-p)
 
 (use-package zerodark-theme
   :config
   (load-theme 'zerodark t)
-  (set-face-attribute 'default nil :height 100 :family "Fira Code"))
+  (set-face-attribute 'default nil :height 100 :family "Fira Code")
+  (global-hl-line-mode t))
 
 (use-package doom-modeline
   :config (doom-modeline-mode 1)
@@ -113,6 +117,9 @@
   (evil-traces-mode)
   (evil-traces-use-diff-faces))
 
+(use-package hideshow
+  :hook (prog-mode . hs-minor-mode))
+
 (use-package which-key
   :config (which-key-mode))
 
@@ -129,7 +136,8 @@
    "C-h f" 'counsel-describe-function)
   (:states '(emacs normal insert visual)
    "<f3>r" 'counsel-recentf
-   "<f3>g" 'counsel-git)
+   "<f3>g" 'counsel-git
+   "C-f"   'counsel-rg)
   (:keymaps 'minibuffer-local-map "C-r" 'counsel-minibuffer-history))
 
 (use-package avy
@@ -154,6 +162,7 @@
   (advice-add 'keyboard-escape-quit :around #'my-keyboard-escape-quit))
 
 (use-package magit
+  :init (define-prefix-command 'personal-magit-map)
   :general
   (:keymaps '(magit-mode-map
 	      magit-file-section-map
@@ -172,17 +181,20 @@
 	    "<f3>g"    'counsel-git
 	    "<f3>p"    'purpose-find-file-overload
 	    "<f3>r"    'counsel-recentf)
-  (:states '(normal visual)
-	   "M-m m" 'magit-status
-	   "M-m l" 'magit-log
-	   "M-m b" 'magit-blame)
+  (:keymaps '(global normal visual)
+	    "M-m"   'personal-magit-map
+	    "M-m m" 'magit-status
+	    "M-m l" 'magit-log
+	    "M-m b" 'magit-blame)
   (:keymaps 'magit-stash-section-map
 	    "k" 'magit-stash-drop)
   (:keymaps 'git-rebase-mode-map
             "m" 'evil-next-line
 	    "u" 'evil-previous-line)
+  :config
   ;; This must be done _after_ loading, hence :config
-  :config (add-hook 'after-save-hook 'magit-after-save-refresh-status t))
+  (add-hook 'after-save-hook 'magit-after-save-refresh-status t)
+  (setq magit-diff-refine-hunk t))
 
 (use-package restart-emacs
   :general ("<C-f5>" 'restart-emacs))
@@ -293,6 +305,9 @@
   (require 'smartparens-config)
   (setq smartparens-strict-mode t)
   (show-smartparens-global-mode t)
+  (setq sp-base-key-bindings 'paredit
+	sp-autoskip-closing-pair 'always)
+  (sp-use-paredit-bindings)
   :general (:states '(normal insert)
 	    "C-."   'sp-forward-slurp-sexp
 	    "C-,"   'sp-backward-slurp-sexp
@@ -351,13 +366,15 @@
   (setq lsp-enable-snippet nil
 	lsp-enable-indentation nil
 	lsp-file-watch-threshold nil)
-  (dolist (hook '(rjsx-mode-hook
-		  js2-mode-hook
-		  clojure-mode-hook
-		  clojurec-mode-hook
-		  clojurescript-mode-hook))
-    ;;(add-hook hook (lambda () (lsp-ui-sideline-enable nil)))
-    (add-hook hook 'lsp)))
+  (dolist (m '(clojure-mode
+	       clojurec-mode
+	       clojurescript-mode
+	       clojurex-mode))
+    (add-to-list 'lsp-language-id-configuration `(,m . "clojure")))
+  :hook
+  (clojure-mode . lsp)
+  (clojurec-mode . lsp)
+  (clojurescript-mode . lsp))
 
 (use-package csv-mode)
 
@@ -505,4 +522,13 @@
 
 (defun lein-clean ()
   (interactive)
-  (shell-command "lein-clean"))
+  (shell-command "lein clean"))
+
+(use-package kaocha-runner
+  :after (clojure-mode)
+  :general (:keymaps 'clojure-mode-map
+	    "C-c k t" 'kaocha-runner-run-test-at-point
+	    "C-c k n" 'kaocha-runner-run-tests
+	    "C-c k a" 'kaocha-runner-run-all-tests
+	    "C-c k w" 'kaocha-runner-show-warnings
+	    "C-c k h" 'kaocha-runner-hide-windows))
