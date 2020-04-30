@@ -57,9 +57,11 @@
 		  input-method " " major-mode process vcs checker))
   (defun setup-custom-doom-modeline ()
     (doom-modeline-set-modeline 'tomline 'default))
+  (setup-custom-doom-modeline)
   (add-hook 'doom-modeline-mode-hook 'setup-custom-doom-modeline)
   (setq doom-modeline-height 1)
-  (set-face-attribute 'mode-line nil :height 100)
+  (set-face-attribute 'mode-line nil :height 90)
+  (set-face-attribute 'mode-line-inactive nil :height 90)
   (setq doom-modeline-buffer-file-name-style 'truncate-except-project)
   (setq which-function-mode nil))
 
@@ -403,14 +405,16 @@
 ;; Non-package-specific rebindings
 (general-def
   :keymaps '(override normal insert)
-  "C-c ESC"   'ignore
-  "<f5>"      'balance-windows
-  "M-£"       'kill-this-buffer
-  "C-M-£"     'kill-some-buffers
-  "<f3>i"     'open-init
-  "C-a"       'mark-whole-buffer
-  "<C-up>"    'enlarge-window
-  "<C-down>"  'shrink-window
+  "C-c ESC"    'ignore
+  "<f5>"       'balance-windows
+  "M-£"        'kill-this-buffer
+  "C-M-£"      'kill-some-buffers
+  "<f3>i"      'open-init
+  "C-a"        'mark-whole-buffer
+  "<C-up>"     'enlarge-window
+  "<C-S-up>"   'enlarge-window
+  "<C-down>"   'shrink-window
+  "<C-S-down>" 'shrink-window
   "<C-left>"  'enlarge-window-horizontally
   "<C-right>" 'shrink-window-horizontally)
 (general-def 'override "<escape>" 'keyboard-escape-quit)
@@ -490,19 +494,15 @@
 (when (display-graphic-p)
   (general-def input-decode-map [?\C-m] [C-m]))
 
-(defvar repl-history-navigation-mode-map
-  (make-keymap) "repl-history-navigation-mode keymap.")
-(general-def
-  :keymaps          'repl-history-navigation-mode-map
-  "<M-up>"          'cider-repl-previous-input
-  "<M-down>"        'cider-repl-next-input
-  "<C-return>"      'cider-repl-newline-and-indent)
-(define-minor-mode repl-history-navigation-mode
-  "Mode to allow keybindings for repl history navigation"
-  nil ;; Init-value
-  " repl-history-nav"
-  repl-history-navigation-mode-map)
-(add-hook 'cider-repl-mode-hook 'repl-history-navigation-mode)
+(defun repl-local-keys ()
+  (general-def
+    :keymaps          'local
+    :states           '(normal insert visual)
+    "<C-up>"          'cider-repl-previous-input
+    "<C-down>"        'cider-repl-next-input
+    "<C-return>"      'cider-repl-newline-and-indent))
+
+(add-hook 'cider-repl-mode-hook 'repl-local-keys)
 
 (general-unbind '(normal motion) "C-e")
 (general-unbind :keymaps '(evil-mc-key-map evil-normal-state-map) "C-n")
