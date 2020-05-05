@@ -44,6 +44,11 @@
   (set-face-attribute 'default nil :height 100 :family "Fira Code")
   (global-hl-line-mode t))
 
+(use-package whitespace
+  :init (setq whitespace-line-column 100
+	      whitespace-style '(face tabs empty trailing lines-tail))
+  :config (whitespace-mode t))
+
 (use-package doom-modeline
   :config (doom-modeline-mode 1)
   (doom-modeline-def-segment purpose-status
@@ -429,7 +434,7 @@
 (general-def 'normal "C-o" 'evil-insert-line-below-and-above)
 
 (use-package dired
-  :straight nil :ensure nil 
+  :straight nil :ensure nil
   :general (:states    'normal
 	    :keymaps   'dired-mode-map
 	    "<return>" 'dired-find-file
