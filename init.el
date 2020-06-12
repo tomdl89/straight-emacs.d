@@ -31,26 +31,28 @@
 
 (add-hook 'window-setup-hook 'toggle-frame-maximized t)
 (add-hook 'window-setup-hook 'toggle-frame-fullscreen t)
+(setq pop-up-windows nil)
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (set-scroll-bar-mode 'right)
 (setq ring-bell-function 'ignore)
+(setq vc-follow-symlinks nil)
 (blink-cursor-mode -1)
 (defalias 'yes-or-no-p 'y-or-n-p)
 
 (use-package zerodark-theme
   :config
   (load-theme 'zerodark t)
-  (set-face-attribute 'default nil :height 100 :family "Fira Code")
-  (global-hl-line-mode t))
+  (set-face-attribute 'default nil :height 100 :family "Fira Code"))
 
 (use-package whitespace
   :init (setq whitespace-line-column 100
 	      whitespace-style '(face tabs empty trailing lines-tail))
-  :config (whitespace-mode t))
+  :hook (prog-mode . whitespace-mode))
 
 (use-package doom-modeline
-  :config (doom-modeline-mode 1)
+  :init
+  (doom-modeline-mode 1)
   (doom-modeline-def-segment purpose-status
     (let ((pms (purpose--modeline-string)))
       (and (string-match "[#!]+" pms)
@@ -63,11 +65,12 @@
   (defun setup-custom-doom-modeline ()
     (doom-modeline-set-modeline 'tomline 'default))
   (setup-custom-doom-modeline)
-  (add-hook 'doom-modeline-mode-hook 'setup-custom-doom-modeline)
+  :hook (doom-modeline-mode . setup-custom-doom-modeline)
+  :config
   (setq doom-modeline-height 1)
   (set-face-attribute 'mode-line nil :height 90)
   (set-face-attribute 'mode-line-inactive nil :height 90)
-  (setq doom-modeline-buffer-file-name-style 'truncate-except-project)
+  (setq doom-modeline-buffer-file-name-style 'relative-to-project)
   (setq which-function-mode nil))
 
 (use-package general)
@@ -117,12 +120,26 @@
   :hook (prog-mode . evil-quickscope-mode))
 
 (use-package evil-owl
+  :init (setq evil-owl-idle-delay 0)
   :hook (prog-mode . evil-owl-mode))
+
+(use-package evil-surround
+  :config (global-evil-surround-mode 1))
 
 (use-package evil-traces
   :init
   (evil-traces-mode)
   (evil-traces-use-diff-faces))
+
+(use-package evil-textobj-line)
+(use-package evil-textobj-entire)
+
+(use-package so-long
+  :init
+  (global-so-long-mode)
+  ;; Also related to long lines making emacs slow...
+  (setq bidi-paragraph-direction 'left-to-right
+	bidi-inhibit-bpa t))
 
 (use-package hideshow
   :hook (prog-mode . hs-minor-mode))
@@ -148,7 +165,8 @@
   (:keymaps 'minibuffer-local-map "C-r" 'counsel-minibuffer-history))
 
 (use-package avy
-  :config (setq avy-keys '(?n ?t ?i ?e ?o ?s ?h ?a ?g ?y ?l ?w ?r ?d))
+  :config (setq avy-keys '(?n ?t ?i ?e ?o ?s ?h ?a ?g ?y ?l ?w ?r ?d)
+		avy-background t)
   :general (:states '(motion normal) "SPC" 'avy-goto-char))
 
 (use-package company
@@ -157,9 +175,15 @@
 	comapny-show-numbers t
 	company-tooltip-limit 10
 	company-minimum-prefix-length 2
+	company-dabbrev-downcase nil
 	company-tooltip-align-annotations t
 	company-tooltip-flip-when-above t)
-  (global-company-mode 1))
+  (global-company-mode 1)
+  :general (:states 'insert "<f4>" 'company-dabbrev))
+
+(use-package rg
+  :init (rg-enable-menu)
+  :general (:states '(emacs normal insert visual) "C-S-f" 'rg-menu))
 
 (use-package cl-lib
   :init
@@ -207,7 +231,7 @@
   :general ("<C-f5>" 'restart-emacs))
 
 (use-package window-purpose
-  :general (:states    '(emacs normal insert) 
+  :general (:states    '(emacs normal insert motion) 
 	    "£"        'switch-buffer-without-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
@@ -222,6 +246,7 @@
   (add-to-list 'purpose-user-mode-purposes '(clojurec-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
+  (add-to-list 'purpose-user-mode-purposes '(magit-diff-mode . crm))
   (purpose-compile-user-configuration))
 
 (use-package windmove
@@ -237,7 +262,7 @@
 
 (use-package centered-cursor-mode
   :general (:states 'normal "zz" 'centered-cursor-mode)
-  :hook prog-mode
+  :hook prog-mode cider-repl-mode
   :config
   (setq ccm-recenter-at-end-of-file t))
 
@@ -275,14 +300,10 @@
   (get-buffer-create "**"))
 (setq initial-buffer-choice 'anon-note)
 
-(use-package highlight-indent-guides
-  :hook (prog-mode . highlight-indent-guides-mode)
-  :config (setq highlight-indent-guides-auto-odd-face-perc 20
-		highlight-indent-guides-auto-even-face-perc 20
-		highlight-indent-guides-auto-character-face-perc 5
-		highlight-indent-guides-character ?\u2502
-		highlight-indent-guides-method 'character
-		highlight-indent-guides-responsive 'top))
+(use-package highlight-sexp
+  :init
+  (setq hl-sexp-background-color "#303643")
+  (global-highlight-sexp-mode))
 
 (use-package hi-lock
   :config (set-face-attribute 'hi-yellow nil :background "#4e5565" :foreground "#abb2bf"))
@@ -354,8 +375,25 @@
   :config
   (add-to-list 'exec-path "~/bin/")
   (setq cider-show-error-buffer nil)
-  :general (:keymaps 'cider-mode-map
-	    "C-n"    'cider-repl-set-ns))
+  :general
+  (:keymaps 'cider-mode-map
+	    "C-n"    'cider-repl-set-ns)
+  (:keymaps 'cider-repl-mode-map
+   :states '(normal insert)
+   "¶"   'cider-repl-switch-to-other
+   "M-i" 'cider-inspect)
+  (:keymaps 'cider-stacktrace-mode-map
+   :states 'normal
+   "q" 'cider-popup-buffer-quit-function)
+  (:keymaps 'cider-inspector-operate-on-point
+   :states 'normal
+   "<return>"        'cider-inspector-operate-on-point
+   "l"               'cider-inspector-pop
+   "g"               'cider-inspector-refresh
+   "q"               'cider-popup-buffer-quit-function
+   "<S-iso-lefttab>" 'cider-inspector-previous-inspectable-object
+   "SPC"             'cider-inspector-next-page
+   "M-SPC"           'cider-inspector-prev-page))
 (use-package clj-refactor)
 
 (use-package adoc-mode
@@ -424,6 +462,7 @@
   "<C-right>" 'shrink-window-horizontally)
 (general-def 'override "<escape>" 'keyboard-escape-quit)
 (general-def 'ctl-x-map [escape] 'ignore)
+(general-def "C-6" 'evil-switch-to-windows-last-buffer)
 (defun evil-insert-line-below-and-above ()
   "Open a line below and above the current line"
   (interactive)
@@ -453,17 +492,17 @@
   :hook (dired-mode . all-the-icons-dired-mode))
 
 ;; Custom functions
-(defun evil-paste-after-from-zero (count)
-  "Paste after from yank register, rather than unnamed register"
-  (interactive "P<x>") (evil-paste-after count ?0))
-(defun evil-paste-before-from-zero (count)
-  "Paste before from yank register, rather than unnamed register"
-  (interactive "P<x>") (evil-paste-before count ?0))
-(general-def
-  :states           '(normal visual)
-  :keymaps          '(global evil-mc-key-map)
-  "C-p"             'evil-paste-after-from-zero
-  "C-S-p"           'evil-paste-before-from-zero)
+;; (defun evil-paste-after-from-zero (count)
+;;   "Paste after from yank register, rather than unnamed register"
+;;   (interactive "P<x>") (evil-paste-after count ?0))
+;; (defun evil-paste-before-from-zero (count)
+;;   "Paste before from yank register, rather than unnamed register"
+;;   (interactive "P<x>") (evil-paste-before count ?0))
+;; (general-def
+;;   :states           '(normal visual)
+;;   :keymaps          '(global evil-mc-key-map)
+;;   "C-p"             'evil-paste-after-from-zero
+;;   "C-S-p"           'evil-paste-before-from-zero)
 
 (evil-define-motion evil-search-symbol-forward (count &optional symbol)
   "Search forward for SYMBOL under point."
@@ -509,6 +548,14 @@
 
 (add-hook 'cider-repl-mode-hook 'repl-local-keys)
 
+(defun ivy-occur-local-keys ()
+  (general-def
+    :keymaps   'local
+    :states    '(normal motion visual)
+    "<return>" 'ivy-occur-press-and-switch))
+
+(add-hook 'ivy-occur-grep-mode-hook 'ivy-occur-local-keys)
+
 (general-unbind '(normal motion) "C-e")
 (general-unbind :keymaps '(evil-mc-key-map evil-normal-state-map) "C-n")
 
@@ -516,6 +563,10 @@
   :keymaps 'cider-mode-map
   "C-e"    'cider-eval-sexp-at-point
   "C-n"    'cider-repl-set-ns)
+
+(defun collapse-comments ()
+  (interactive)
+  (evil-ex "global/(comment/normal zc"))
 
 (setq truncate-partial-width-windows t)
 (defun truncate-partial-width-windows-50 ()
@@ -528,6 +579,7 @@
 (defun lein-clean ()
   (interactive)
   (shell-command "lein clean"))
+(general-def "C-l" 'lein-clean)
 
 (use-package kaocha-runner
   :after (clojure-mode)
@@ -537,3 +589,5 @@
 	    "C-c k a" 'kaocha-runner-run-all-tests
 	    "C-c k w" 'kaocha-runner-show-warnings
 	    "C-c k h" 'kaocha-runner-hide-windows))
+
+(use-package graphql-mode)
