@@ -37,7 +37,11 @@
 (set-scroll-bar-mode 'right)
 (setq ring-bell-function 'ignore)
 (setq vc-follow-symlinks nil)
-(blink-cursor-mode -1)
+(setq blink-cursor-delay 60
+      blink-cursor-blinks 0)
+(blink-cursor-mode t)
+(setq make-backup-files nil)
+(setq-default indent-tabs-mode nil)
 (defalias 'yes-or-no-p 'y-or-n-p)
 
 (use-package zerodark-theme
@@ -75,6 +79,8 @@
 
 (use-package general)
 
+(use-package undo-fu)
+
 (use-package evil
   :init
   (evil-mode 1)
@@ -91,7 +97,8 @@
             "k"               'evil-ex-search-next
             "K"               'evil-ex-search-previous
             "l"               'evil-set-marker
-            "j"               'undo-tree-undo
+            "j"               'undo-fu-only-undo
+	    "C-r"             'undo-fu-only-redo
             "gm"              'evil-next-line
             "gu"              'evil-previous-line
             "gj"              'evil-downcase
@@ -145,6 +152,7 @@
   :hook (prog-mode . hs-minor-mode))
 
 (use-package which-key
+  :init (setq which-key-popup-type 'minibuffer)
   :config (which-key-mode))
 
 (use-package smex)
@@ -192,6 +200,10 @@
       (apply fun args)))
   (advice-add 'keyboard-escape-quit :around #'my-keyboard-escape-quit))
 
+(defun avy-goto-asterisk ()
+  "Use avy-goto-char with asterisk, for navigating magit log"
+  (interactive) (avy-goto-char ?*))
+
 (use-package magit
   :init (define-prefix-command 'personal-magit-map)
   :general
@@ -227,27 +239,43 @@
   (add-hook 'after-save-hook 'magit-after-save-refresh-status t)
   (setq magit-diff-refine-hunk t))
 
+(use-package smerge-mode
+  :hook
+  (smerge-mode . (lambda () (evil-cleverparens-mode -1)))
+  (smerge-mode . (lambda () (smartparens-mode -1))))
+
 (use-package restart-emacs
   :general ("<C-f5>" 'restart-emacs))
 
 (use-package window-purpose
-  :general (:states    '(emacs normal insert motion) 
+  :general (:states    '(emacs normal insert)
 	    "£"        'switch-buffer-without-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "<f3><f3>" 'find-file-without-purpose
 	    "<f3>p"    'purpose-find-file-overload
-	    "<f7>"     'purpose-load-window-layout
-	    "<C-f7>"   'purpose-save-window-layout)
+	    "<f7>l"    'purpose-load-window-layout
+	    "<f7>s"    'purpose-save-window-layout
+	    "<f7>w"    'purpose-toggle-window-purpose-dedicated
+	    "<f7>b"    'purpose-toggle-window-buffer-dedicated)
   :init (purpose-mode)
   :config
   (add-to-list 'purpose-user-mode-purposes '(js2-mode . js))
   (add-to-list 'purpose-user-mode-purposes '(clojure-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(clojurec-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(scss-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(graphql-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
   (add-to-list 'purpose-user-mode-purposes '(magit-diff-mode . crm))
   (purpose-compile-user-configuration))
+
+(use-package zoom
+  :init
+  (setq zoom-size '(110 . 0.6))
+  (custom-set-variables
+   '(zoom-mode t))
+  :general (:keymaps '(override normal insert) "<f5>" 'zoom-mode))
 
 (use-package windmove
   :config (windmove-default-keybindings))
@@ -300,11 +328,6 @@
   (get-buffer-create "**"))
 (setq initial-buffer-choice 'anon-note)
 
-(use-package highlight-sexp
-  :init
-  (setq hl-sexp-background-color "#303643")
-  (global-highlight-sexp-mode))
-
 (use-package hi-lock
   :config (set-face-attribute 'hi-yellow nil :background "#4e5565" :foreground "#abb2bf"))
 (use-package highlight-thing
@@ -312,6 +335,15 @@
   :general (:states 'normal "C-8" 'highlight-thing-mode))
 
 (use-package midnight)
+
+(defun org-local-keys ()
+  (general-def
+    :keymaps     'local
+    :states      '(normal insert visual)
+    "<C-return>" 'org-insert-heading-respect-content))
+
+(use-package org
+  :hook (org-mode . org-local-keys))
 
 (use-package org-bullets
   :hook (org-mode . org-bullets-mode))
@@ -321,8 +353,9 @@
 
 (defun conditionally-enable-smartparens-mode ()
   "Enable `smartparens-mode' in the minibuffer, during `eval-expression'."
-  (if (eq this-command 'eval-expression)
-      (smartparens-mode 1)))
+  (when (eq this-command 'eval-expression)
+    (smartparens-mode 1)
+    (sp-pair "'" nil :actions :rem)))
 
 (use-package smartparens
   :hook
@@ -351,6 +384,7 @@
             "{"      'evil-backward-paragraph
             "}"      'evil-forward-paragraph
             "M-l"    'linum-mode
+            "x"      'evil-delete-char
             "X"      'fixup-whitespace
             "("      'evil-previous-open-paren
             ")"      'evil-next-close-paren))
@@ -377,15 +411,16 @@
   (setq cider-show-error-buffer nil)
   :general
   (:keymaps 'cider-mode-map
-	    "C-n"    'cider-repl-set-ns)
+   "C-n"    'cider-repl-set-ns)
   (:keymaps 'cider-repl-mode-map
    :states '(normal insert)
    "¶"   'cider-repl-switch-to-other
+   "C-c C-l" 'cider-repl-clear-buffer
    "M-i" 'cider-inspect)
   (:keymaps 'cider-stacktrace-mode-map
    :states 'normal
    "q" 'cider-popup-buffer-quit-function)
-  (:keymaps 'cider-inspector-operate-on-point
+  (:keymaps 'cider-inspector-mode-map
    :states 'normal
    "<return>"        'cider-inspector-operate-on-point
    "l"               'cider-inspector-pop
@@ -427,7 +462,7 @@
   :init (add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-mode)))
 
 (use-package auctex
-  :config 
+  :config
   (defvar tex-fold-key-mode-map
     (make-keymap) "tex-fold-mode keymap.")
   (define-minor-mode tex-fold-key-mode
@@ -449,7 +484,6 @@
 (general-def
   :keymaps '(override normal insert)
   "C-c ESC"    'ignore
-  "<f5>"       'balance-windows
   "M-£"        'kill-this-buffer
   "C-M-£"      'kill-some-buffers
   "<f3>i"      'open-init
@@ -542,8 +576,8 @@
   (general-def
     :keymaps          'local
     :states           '(normal insert visual)
-    "<C-up>"          'cider-repl-previous-input
-    "<C-down>"        'cider-repl-next-input
+    "<C-up>"          'cider-repl-backward-input
+    "<C-down>"        'cider-repl-forward-input
     "<C-return>"      'cider-repl-newline-and-indent))
 
 (add-hook 'cider-repl-mode-hook 'repl-local-keys)
