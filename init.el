@@ -244,6 +244,17 @@
   (smerge-mode . (lambda () (evil-cleverparens-mode -1)))
   (smerge-mode . (lambda () (smartparens-mode -1))))
 
+(defun auto-stage-untracked-file ()
+  "Add an empty version of the currently-visited file to the index
+iff it is in a git repo, but untracked."
+  (when (and (magit-git-true "rev-parse" "--is-inside-work-tree")
+             (not (magit-file-tracked-p (buffer-file-name)))
+             this-command ; nil for auto-save
+             (y-or-n-p (format "Add (intent-to-add) %s to git index?" (buffer-name))))
+    (magit-run-git "add" "--intent-to-add" "--" (buffer-file-name))))
+
+(add-hook 'after-save-hook 'auto-stage-untracked-file)
+
 (use-package restart-emacs
   :general ("<C-f5>" 'restart-emacs))
 
