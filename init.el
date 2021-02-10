@@ -85,6 +85,7 @@
   :init
   (evil-mode 1)
   (setq evil-cross-lines t
+        evil-jumps-cross-buffers nil
 	evil-search-module 'evil-search
 	evil-ex-search-vim-style-regexp t
 	evil-magic 'very-magic
@@ -186,12 +187,10 @@
 	company-dabbrev-downcase nil
 	company-tooltip-align-annotations t
 	company-tooltip-flip-when-above t)
-  (global-company-mode 1)
+  :hook
+  (prog-mode . company-mode-on)
+  (cider-repl-mode . company-mode-on)
   :general (:states 'insert "<f4>" 'company-dabbrev))
-
-(use-package rg
-  :init (rg-enable-menu)
-  :general (:states '(emacs normal insert visual) "C-S-f" 'rg-menu))
 
 (use-package cl-lib
   :init
@@ -239,6 +238,14 @@
   (add-hook 'after-save-hook 'magit-after-save-refresh-status t)
   (setq magit-diff-refine-hunk t))
 
+(defun blame-local-keys ()
+  (general-def
+    :keymaps       'local
+    :states        'normal
+    "<S-return>"   'magit-show-commit))
+
+(add-hook 'magit-blame-mode-hook 'blame-local-keys)
+
 (use-package smerge-mode
   :hook
   (smerge-mode . (lambda () (evil-cleverparens-mode -1)))
@@ -247,8 +254,10 @@
 (defun auto-stage-untracked-file ()
   "Add an empty version of the currently-visited file to the index
 iff it is in a git repo, but untracked."
-  (when (and (magit-git-true "rev-parse" "--is-inside-work-tree")
+  (when (and (fboundp 'magit-git-true)
+             (magit-git-true "rev-parse" "--is-inside-work-tree")
              (not (magit-file-tracked-p (buffer-file-name)))
+             (not (equal "recentf" (buffer-name))) ; TODO find a better way to exclude these
              this-command ; nil for auto-save
              (y-or-n-p (format "Add (intent-to-add) %s to git index?" (buffer-name))))
     (magit-run-git "add" "--intent-to-add" "--" (buffer-file-name))))
@@ -261,7 +270,6 @@ iff it is in a git repo, but untracked."
 (use-package window-purpose
   :general (:states    '(emacs normal insert)
 	    "£"        'switch-buffer-without-purpose
-	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "<f3><f3>" 'find-file-without-purpose
 	    "<f3>p"    'purpose-find-file-overload
@@ -277,9 +285,12 @@ iff it is in a git repo, but untracked."
   (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(scss-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(graphql-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(dockerfile-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(markdown-mode . clj))
   (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
   (add-to-list 'purpose-user-mode-purposes '(magit-diff-mode . crm))
   (purpose-compile-user-configuration))
+(add-hook 'after-make-frame-functions (lambda (_) (purpose-load-window-layout "Clojure-3C")))
 
 (use-package zoom
   :init
@@ -294,14 +305,13 @@ iff it is in a git repo, but untracked."
 (use-package ace-window
   :general ("C-<tab>" 'ace-window)
   :config (setq aw-dispatch-always t
-		aw-keys '(?n ?i ?h ?y ?l ?r ?t ?e ?s ?a ?g ?w ?d)
-		aw-scope 'frame))
+		aw-keys '(?n ?i ?h ?y ?l ?r ?t ?e ?s ?a ?g ?w ?d)))
 
 (setq split-height-threshold 200)
 
 (use-package centered-cursor-mode
   :general (:states 'normal "zz" 'centered-cursor-mode)
-  :hook prog-mode cider-repl-mode
+  :hook prog-mode cider-repl-mode magit-mode
   :config
   (setq ccm-recenter-at-end-of-file t))
 
@@ -342,6 +352,8 @@ iff it is in a git repo, but untracked."
 (use-package hi-lock
   :config (set-face-attribute 'hi-yellow nil :background "#4e5565" :foreground "#abb2bf"))
 (use-package highlight-thing
+  :init (global-highlight-thing-mode)
+  :hook (magit-mode . (lambda () (highlight-thing-mode -1)))
   :config (setq highlight-thing-delay-seconds 0.3)
   :general (:states 'normal "C-8" 'highlight-thing-mode))
 
@@ -387,6 +399,8 @@ iff it is in a git repo, but untracked."
 	    "C-<"   'sp-backward-barf-sexp))
 
 (use-package evil-cleverparens
+  :init (setq evil-cleverparens-swap-move-by-word-and-symbol t
+              evil-cleverparens-use-regular-insert t)
   :hook
   (prog-mode . evil-cleverparens-mode)
   (cider-repl-mode . evil-cleverparens-mode)
@@ -398,20 +412,28 @@ iff it is in a git repo, but untracked."
             "x"      'evil-delete-char
             "X"      'fixup-whitespace
             "("      'evil-previous-open-paren
-            ")"      'evil-next-close-paren))
+            ")"      'evil-next-close-paren
+            "M-w"    'evil-forward-WORD-begin))
 
 (use-package flycheck
   :init (global-flycheck-mode)
   :config (setq flycheck-indication-mode nil))
-(use-package flycheck-clj-kondo
-  :init (global-flycheck-mode))
+(use-package flycheck-clj-kondo)
+(dolist (checker '(clj-kondo-clj clj-kondo-cljs clj-kondo-cljc clj-kondo-edn))
+  (setq flycheck-checkers (cons checker (delq checker flycheck-checkers))))
+
+(defun defx (var)
+  (interactive "s")
+  (insert (format "(def %s %s)" var var)))
 
 (use-package clojure-mode
   :config (require 'flycheck-clj-kondo)
   :general
   (:keymaps 'clojure-mode-map
    "C-j"    'cider-jack-in-clj&cljs
-   "C-S-r"  'lsp-rename)
+   "C-S-r"  'lsp-rename
+   "ð"      'defx
+   "C-ð"    'defx)
   (:keymaps 'clojure-mode-map
    :states  'normal
    "gd"     'cider-find-var))
@@ -419,15 +441,22 @@ iff it is in a git repo, but untracked."
 (use-package cider
   :config
   (add-to-list 'exec-path "~/bin/")
-  (setq cider-show-error-buffer nil)
+  (setq cider-show-error-buffer nil
+        nrepl-hide-special-buffers t)
   :general
   (:keymaps 'cider-mode-map
-   "C-n"    'cider-repl-set-ns)
+   "C-n"    'cider-repl-set-ns
+   "C-→"    'evil-cider-inspect
+   "M-i"    'cider-inspect-last-sexp
+   "→"      'evil-cider-inspect)
   (:keymaps 'cider-repl-mode-map
    :states '(normal insert)
    "¶"   'cider-repl-switch-to-other
    "C-c C-l" 'cider-repl-clear-buffer
-   "M-i" 'cider-inspect)
+   "M-i" 'cider-inspect
+   "C-→"    'evil-cider-inspect
+   "M-i"    'cider-inspect-last-sexp
+   "→"      'evil-cider-inspect)
   (:keymaps 'cider-stacktrace-mode-map
    :states 'normal
    "q" 'cider-popup-buffer-quit-function)
@@ -440,6 +469,17 @@ iff it is in a git repo, but untracked."
    "<S-iso-lefttab>" 'cider-inspector-previous-inspectable-object
    "SPC"             'cider-inspector-next-page
    "M-SPC"           'cider-inspector-prev-page))
+
+(evil-define-operator evil-cider-eval (beg end)
+  "Evalulate the text region moved over by an evil motion."
+  :motion evil-cp-a-defun
+  (cider-eval-region beg end))
+
+(evil-define-operator evil-cider-inspect (beg end)
+  "Inspect the text region moved over by an evil motion."
+  (let ((expr (buffer-substring-no-properties beg end)))
+    (cider-inspect-expr expr (cider-current-ns))))
+
 (use-package clj-refactor)
 
 (use-package adoc-mode
@@ -452,20 +492,20 @@ iff it is in a git repo, but untracked."
 (use-package scss-mode
   :init (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode)))
 
-(use-package lsp-mode
-  :config
-  (setq lsp-enable-snippet nil
-	lsp-enable-indentation nil
-	lsp-file-watch-threshold nil)
-  (dolist (m '(clojure-mode
-	       clojurec-mode
-	       clojurescript-mode
-	       clojurex-mode))
-    (add-to-list 'lsp-language-id-configuration `(,m . "clojure")))
-  :hook
-  (clojure-mode . lsp)
-  (clojurec-mode . lsp)
-  (clojurescript-mode . lsp))
+;; (use-package lsp-mode
+;;   :config
+;;   (setq lsp-enable-snippet nil
+;;         lsp-enable-indentation nil
+;;         lsp-file-watch-threshold nil)
+;;   (dolist (m '(clojure-mode
+;;                clojurec-mode
+;;                clojurescript-mode
+;;                clojurex-mode))
+;;     (add-to-list 'lsp-language-id-configuration `(,m . "clojure")))
+;;   :hook
+;;   (clojure-mode . lsp)
+;;   (clojurec-mode . lsp)
+;;   (clojurescript-mode . lsp))
 
 (use-package csv-mode)
 
@@ -527,7 +567,6 @@ iff it is in a git repo, but untracked."
 	    "u"        'dired-previous-line
 	    "n"        'evil-backward-char
 	    "h"        'evil-forward-char
-	    "l"        'dired-mark
 	    "L"        'dired-unmark
 	    "C-S-l"    'dired-do-load
 	    "<SPC>"    'avy-goto-line)
@@ -535,6 +574,14 @@ iff it is in a git repo, but untracked."
 (use-package all-the-icons-dired
   :after (dired)
   :hook (dired-mode . all-the-icons-dired-mode))
+
+(defun dired-local-keys ()
+  (general-def
+    :keymaps        'local
+    :states         'normal
+    "l"             'dired-mark
+    "g"             'dired-revert))
+(add-hook 'dired-mode-hook 'dired-local-keys)
 
 ;; Custom functions
 ;; (defun evil-paste-after-from-zero (count)
@@ -606,7 +653,7 @@ iff it is in a git repo, but untracked."
 
 (general-def
   :keymaps 'cider-mode-map
-  "C-e"    'cider-eval-sexp-at-point
+  "C-e"    'evil-cider-eval
   "C-n"    'cider-repl-set-ns)
 
 (defun collapse-comments ()
