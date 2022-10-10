@@ -13,6 +13,7 @@
    (message "gc-cons-threshold and file-name-handler-alist restored")))
 
 ;; Bootstrap straight
+(setq straight-check-for-modifications '(check-on-save find-when-checking))
 (defvar bootstrap-version)
 (let ((bootstrap-file
        (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
@@ -29,6 +30,7 @@
 (straight-use-package 'use-package)
 (setq straight-use-package-by-default t)
 
+(savehist-mode 1)
 (add-hook 'window-setup-hook 'toggle-frame-maximized t)
 (add-hook 'window-setup-hook 'toggle-frame-fullscreen t)
 (setq pop-up-windows nil)
@@ -36,23 +38,36 @@
 (tool-bar-mode -1)
 (set-scroll-bar-mode 'right)
 (setq ring-bell-function 'ignore)
-(setq vc-follow-symlinks nil)
+(setq vc-follow-symlinks t)
 (setq blink-cursor-delay 60
       blink-cursor-blinks 0)
 (blink-cursor-mode t)
 (setq make-backup-files nil)
+(setq auto-revert-interval 1)
 (setq-default indent-tabs-mode nil)
+(setq-default calc-multiplication-has-precedence nil)
 (defalias 'yes-or-no-p 'y-or-n-p)
+
+(use-package general)
+
+(use-package emacs
+  :config (setq calendar-week-start-day 1)
+  :custom (warning-minimum-level :error)
+  :general (:states '(normal visual)
+            :keymaps '(override global)
+            "M-l"    'linum-mode))
 
 (use-package zerodark-theme
   :config
   (load-theme 'zerodark t)
   (set-face-attribute 'default nil :height 100 :family "Fira Code"))
 
-(use-package whitespace
-  :init (setq whitespace-line-column 100
-	      whitespace-style '(face tabs empty trailing lines-tail))
-  :hook (prog-mode . whitespace-mode))
+;; (use-package whitespace
+;;   :init (setq whitespace-line-column 100
+;; 	      whitespace-style '(face tabs empty trailing lines-tail))
+;;   :hook (prog-mode . whitespace-mode))
+(setq-default fill-column 100)
+(add-hook 'prog-mode-hook 'display-fill-column-indicator-mode)
 
 (use-package doom-modeline
   :init
@@ -77,37 +92,53 @@
   (setq doom-modeline-buffer-file-name-style 'relative-to-project)
   (setq which-function-mode nil))
 
-(use-package general)
-
 (use-package undo-fu)
+
+(use-package goto-chg
+  :general (:keymaps 'global
+                     "M-;" 'goto-last-change
+                     "M-," 'goto-last-change-reverse))
 
 (use-package evil
   :init
-  (evil-mode 1)
   (setq evil-cross-lines t
         evil-jumps-cross-buffers nil
-	evil-search-module 'evil-search
-	evil-ex-search-vim-style-regexp t
-	evil-magic 'very-magic
-	evil-want-Y-yank-to-eol t)
+        evil-ex-search-vim-style-regexp t
+        evil-ex-search-case 'insensitive
+        ;evil-ex-substitute-case nil
+        evil-magic 'very-magic
+        evil-want-C-g-bindings t
+        evil-want-Y-yank-to-eol t
+        evil-want-C-w-in-emacs-state t
+        evil-want-C-u-scroll t
+        evil-v$-excludes-newline t)
+  (evil-mode 1)
+  (setq-default evil-symbol-word-search t)
   :general (:states           '(normal motion visual)
             "m"               'evil-next-visual-line
             "u"               'evil-previous-visual-line
             "n"               'evil-backward-char
             "h"               'evil-forward-char
+            "N"               'evil-lookup
             "k"               'evil-ex-search-next
             "K"               'evil-ex-search-previous
             "l"               'evil-set-marker
             "j"               'undo-fu-only-undo
-	    "C-r"             'undo-fu-only-redo
-            "gm"              'evil-next-line
-            "gu"              'evil-previous-line
-            "gj"              'evil-downcase
+            "C-r"             'undo-fu-only-redo
             "<S-tab>"         'evil-jump-backward
             "<S-iso-lefttab>" 'evil-jump-backward
-            "/"               'evil-ex-search-forward
-            "?"               'evil-ex-search-backward
-            "<return>"        'evil-ex-nohighlight))
+            "<return>"        'evil-ex-nohighlight)
+  (:states 'normal
+   "g." (kbd "/ C-r \" <return> cgn C-@"))
+  (:keymaps 'org-mode-map :states 'normal "o" (kbd "A <return>"))
+  :config (evil-select-search-module 'evil-search-module 'evil-search))
+
+;(use-package targets
+;  :straight (:host github :repo "noctuid/targets.el" :branch "master")
+;  :config (targets-setup t :last-key "L" :next-key "N"))
+
+(use-package evil-matchit
+  :config (global-evil-matchit-mode 1))
 
 (use-package evil-anzu
   :init (global-anzu-mode))
@@ -115,14 +146,25 @@
 (use-package evil-exchange
   :general (:states '(normal visual) "gx" 'evil-exchange))
 
+(use-package evil-unimpaired
+  :straight (:host github :repo "zmaas/evil-unimpaired")
+  :hook (prog-mode . evil-unimpaired-mode))
+
 (use-package evil-commentary
   :hook (prog-mode . evil-commentary-mode))
 
 (use-package evil-fringe-mark
   :hook (prog-mode . evil-fringe-mark-mode)
   :config (setq-default right-fringe-width 16
-			evil-fringe-mark-side 'right-fringe
-			evil-fringe-mark-show-special t))
+			evil-fringe-mark-side 'right-fringe))
+
+(use-package evil-numbers
+  :straight (:host github :repo "cofi/evil-numbers" :fork "juliapath/evil-numbers" :branch "master")
+  :general (:states 'normal
+                    "<kp-add>" 'evil-numbers/inc-at-pt
+                    "<kp-subtract>" 'evil-numbers/dec-at-pt
+                    "C-<kp-add>" 'evil-numbers/inc-at-pt-incremental
+                    "C-<kp-subtract>" 'evil-numbers/dec-at-pt-incremental))
 
 (use-package evil-quickscope
   :hook (prog-mode . evil-quickscope-mode))
@@ -140,7 +182,14 @@
   (evil-traces-use-diff-faces))
 
 (use-package evil-textobj-line)
-(use-package evil-textobj-entire)
+(use-package evil-textobj-entire
+  :general
+  (:keymaps '(evil-outer-text-objects-map evil-inner-text-objects-map)
+   "e"     'evil-entire-entire-buffer))
+
+(use-package evil-visualstar
+  :config
+  (global-evil-visualstar-mode))
 
 (use-package so-long
   :init
@@ -150,26 +199,40 @@
 	bidi-inhibit-bpa t))
 
 (use-package hideshow
-  :hook (prog-mode . hs-minor-mode))
+  :hook (prog-mode . hs-minor-mode)
+  :config (add-to-list 'hs-special-modes-alist
+                       `(ruby-mode
+                         ,(rx (or "def" "class" "module" "do" "{" "[" "if" "else" "unless"))
+                         ,(rx (or "}" "]" "end"))
+                         ,(rx (or "#" "=begin"))
+                         ruby-forward-sexp nil)))
 
 (use-package which-key
   :init (setq which-key-popup-type 'minibuffer)
+  :general ("<f1>" 'which-key-show-top-level
+            "<f2>" 'which-key-show-major-mode)
   :config (which-key-mode))
 
 (use-package smex)
 
 (use-package ivy
   :init (ivy-mode 1)
-  :general (:keymaps 'ivy-mode-map "<C-return>" 'ivy-immediate-done))
+  :general (:keymaps 'ivy-minibuffer-map
+                     "<C-return>" 'ivy-immediate-done
+                     "<f8>"       'ivy-rotate-preferred-builders
+                     "C-d"        'ivy-done)
+  :config (setq ivy-height 30))
 
 (use-package counsel
   :general
   ("M-x"   'counsel-M-x
    "C-h v" 'counsel-describe-variable
    "C-h f" 'counsel-describe-function)
-  (:states '(emacs normal insert visual)
-   "<f3>r" 'counsel-recentf
+  (:states '(global motion insert)
+   "<f3>r" 'recentf-without-purpose
    "<f3>g" 'counsel-git
+   "<f3>l" 'counsel-locate
+   "<f3>L" 'find-file-literally
    "C-f"   'counsel-rg)
   (:keymaps 'minibuffer-local-map "C-r" 'counsel-minibuffer-history))
 
@@ -190,7 +253,7 @@
   :hook
   (prog-mode . company-mode-on)
   (cider-repl-mode . company-mode-on)
-  :general (:states 'insert "<f4>" 'company-dabbrev))
+  :general (:states 'insert "<f4>" 'company-dabbrev-code))
 
 (use-package cl-lib
   :init
@@ -198,6 +261,34 @@
     (cl-letf (((symbol-function 'one-window-p) (lambda (&rest _) t)))
       (apply fun args)))
   (advice-add 'keyboard-escape-quit :around #'my-keyboard-escape-quit))
+
+(use-package window-purpose
+  :general (:states    '(global motion insert)
+	    "£"        'switch-buffer-without-purpose
+	    "C-£"      'purpose-switch-buffer-with-purpose
+	    "<f3><f3>" 'find-file-without-purpose
+	    "<f3>p"    'purpose-find-file-overload
+	    "<f7>l"    'purpose-load-window-layout
+	    "<f7>s"    'purpose-save-window-layout
+	    "<f7>w"    'purpose-toggle-window-purpose-dedicated
+	    "<f7>b"    'purpose-toggle-window-buffer-dedicated)
+  :init (purpose-mode)
+  :config
+  (add-to-list 'purpose-user-mode-purposes '(js2-mode . js))
+  (add-to-list 'purpose-user-mode-purposes '(clojure-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(clojurec-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(scss-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(graphql-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(dockerfile-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(markdown-mode . clj))
+  (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
+  (add-to-list 'purpose-user-mode-purposes '(magit-diff-mode . crm))
+  (add-to-list 'purpose-user-mode-purposes '(adoc-mode . crm))
+  (purpose-compile-user-configuration))
+
+(defalias 'recentf-without-purpose
+  (without-purpose-command #'counsel-recentf))
 
 (defun avy-goto-asterisk ()
   "Use avy-goto-char with asterisk, for navigating magit log"
@@ -219,10 +310,13 @@
 	    "SPC"      'avy-goto-asterisk
 	    "<C-tab>"  'ace-window
 	    "£"        'switch-buffer-without-purpose
+            "<f2>"     'which-key-show-major-mode
 	    "<f3><f3>" 'find-file-without-purpose
 	    "<f3>g"    'counsel-git
 	    "<f3>p"    'purpose-find-file-overload
-	    "<f3>r"    'counsel-recentf)
+	    "<f3>r"    'recentf-without-purpose)
+  (:keymaps 'magit-file-section-map
+            "<return>" 'magit-diff-visit-file-other-window)
   (:keymaps '(global normal visual)
 	    "M-m"   'personal-magit-map
 	    "M-m m" 'magit-status
@@ -236,7 +330,8 @@
   :config
   ;; This must be done _after_ loading, hence :config
   (add-hook 'after-save-hook 'magit-after-save-refresh-status t)
-  (setq magit-diff-refine-hunk t))
+  (setq magit-diff-refine-hunk t
+        magit-revision-insert-related-refs nil))
 
 (defun blame-local-keys ()
   (general-def
@@ -255,7 +350,9 @@
   "Add an empty version of the currently-visited file to the index
 iff it is in a git repo, but untracked."
   (when (and (fboundp 'magit-git-true)
-             (magit-git-true "rev-parse" "--is-inside-work-tree")
+             (condition-case nil
+                 (magit-git-true "rev-parse" "--is-inside-work-tree")
+               (error nil))
              (not (magit-file-tracked-p (buffer-file-name)))
              (not (equal "recentf" (buffer-name))) ; TODO find a better way to exclude these
              this-command ; nil for auto-save
@@ -266,31 +363,6 @@ iff it is in a git repo, but untracked."
 
 (use-package restart-emacs
   :general ("<C-f5>" 'restart-emacs))
-
-(use-package window-purpose
-  :general (:states    '(emacs normal insert)
-	    "£"        'switch-buffer-without-purpose
-	    "C-£"      'purpose-switch-buffer-with-purpose
-	    "<f3><f3>" 'find-file-without-purpose
-	    "<f3>p"    'purpose-find-file-overload
-	    "<f7>l"    'purpose-load-window-layout
-	    "<f7>s"    'purpose-save-window-layout
-	    "<f7>w"    'purpose-toggle-window-purpose-dedicated
-	    "<f7>b"    'purpose-toggle-window-buffer-dedicated)
-  :init (purpose-mode)
-  :config
-  (add-to-list 'purpose-user-mode-purposes '(js2-mode . js))
-  (add-to-list 'purpose-user-mode-purposes '(clojure-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(clojurec-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(clojurescript-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(scss-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(graphql-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(dockerfile-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(markdown-mode . clj))
-  (add-to-list 'purpose-user-mode-purposes '(cider-repl-mode . crm))
-  (add-to-list 'purpose-user-mode-purposes '(magit-diff-mode . crm))
-  (purpose-compile-user-configuration))
-(add-hook 'after-make-frame-functions (lambda (_) (purpose-load-window-layout "Clojure-3C")))
 
 (use-package zoom
   :init
@@ -311,9 +383,10 @@ iff it is in a git repo, but untracked."
 
 (use-package centered-cursor-mode
   :general (:states 'normal "zz" 'centered-cursor-mode)
-  :hook prog-mode cider-repl-mode magit-mode
+  :hook prog-mode cider-repl-mode magit-mode erc-mode org-mode
   :config
-  (setq ccm-recenter-at-end-of-file t))
+  (setq ccm-recenter-at-end-of-file t
+        scroll-conservatively 101))
 
 (use-package projectile)
 (use-package projectile-git-autofetch
@@ -330,8 +403,8 @@ iff it is in a git repo, but untracked."
 (put 'narrow-to-defun 'disabled nil)
 
 (recentf-mode +1)
-(setq recentf-max-menu-items 200
-      recentf-max-saved-items 200)
+(setq recentf-max-menu-items 400
+      recentf-max-saved-items 400)
 (run-at-time 300 300 'recentf-save-list)
 
 ;; Set column after which text is highlighted
@@ -354,19 +427,36 @@ iff it is in a git repo, but untracked."
 (use-package highlight-thing
   :init (global-highlight-thing-mode)
   :hook (magit-mode . (lambda () (highlight-thing-mode -1)))
-  :config (setq highlight-thing-delay-seconds 0.3)
+  :config (setq highlight-thing-delay-seconds 0.3
+                highlight-thing-exclude-thing-under-point t
+                highlight-thing-all-visible-buffers-p t)
   :general (:states 'normal "C-8" 'highlight-thing-mode))
 
 (use-package midnight)
 
-(defun org-local-keys ()
+(defun org-local-setup ()
+  (visual-line-mode 1)
+  (flyspell-mode 1)
+  (prettify-symbols-mode 1)
   (general-def
     :keymaps     'local
-    :states      '(normal insert visual)
+    :states      'insert
+    "<return>"   'org-meta-return
+    "<S-return>" 'org-return
     "<C-return>" 'org-insert-heading-respect-content))
 
 (use-package org
-  :hook (org-mode . org-local-keys))
+  :hook
+  (org-mode . org-local-setup)
+  (org-after-todo-state-change . (lambda () (when (equal "DONE" org-state)
+                                              (call-interactively #'org-archive-to-archive-sibling))))
+  :config (setq org-agenda-files '("~/Documents/Work"
+                                   "~/org/work-tasks.org")
+                org-todo-keywords '((sequence "NEXT(n)" "WAITING(w)" "THINK(t)" "LATER(l)" "DONE(d)"))
+                org-agenda-sorting-strategy '((agenda habit-down time-up priority-down category-keep)
+                                              (todo priority-down todo-state-up category-keep)
+                                              (tags priority-down category-keep)
+                                              (search category-keep))))
 
 (use-package org-bullets
   :hook (org-mode . org-bullets-mode))
@@ -399,32 +489,82 @@ iff it is in a git repo, but untracked."
 	    "C-<"   'sp-backward-barf-sexp))
 
 (use-package evil-cleverparens
-  :init (setq evil-cleverparens-swap-move-by-word-and-symbol t
-              evil-cleverparens-use-regular-insert t)
+  :straight (:host github :repo "luxbock/evil-cleverparens" :fork "corasaurus-hex/evil-cleverparens" :branch "master")
+  :init (setq evil-cleverparens-use-regular-insert t)
   :hook
   (prog-mode . evil-cleverparens-mode)
   (cider-repl-mode . evil-cleverparens-mode)
+  :custom
+  (evil-cleverparens-use-additional-bindings nil)
+  (evil-cleverparens-use-additional-movement-keys nil)
   :general (:states  '(normal visual)
             :keymaps '(global evil-cleverparens-mode-map)
             "{"      'evil-backward-paragraph
             "}"      'evil-forward-paragraph
-            "M-l"    'linum-mode
+            "M-l"    nil
             "x"      'evil-delete-char
             "X"      'fixup-whitespace
             "("      'evil-previous-open-paren
             ")"      'evil-next-close-paren
-            "M-w"    'evil-forward-WORD-begin))
+            "["      nil
+            "]"      nil
+            "M-w"    'evil-forward-WORD-begin
+            "<f9>"   'evil-cleverparens-mode)
+           (:states  'motion
+            "]]"     'evil-cp-next-closing
+            "]["     'evil-cp-next-opening
+            "[["     'evil-cp-previous-opening
+            "[]"     'evil-cp-previous-closing))
+(general-def "M-l" 'linum-mode)
+
+;; (use-package lispy
+;;   ;; TODO - slurp/barf bindings
+;;   :hook
+;;   (prog-mode . lispy-mode)
+;;   (cider-repl-mode . lispy-mode)
+;;   :config
+;;   (lispy-set-key-theme '(lispy c-digits)))
+
+;; (use-package lispyville
+;;   :hook
+;;   (prog-mode . lispyville-mode)
+;;   (cider-repl-mode . lispyville-mode)
+;;   :config
+;;   (lispyville-set-key-theme '(operators c-w additional))
+;;   :general (:states '(normal visual)
+;;             :keymaps '(global lispyville-mode-map)
+;;             "x"      'evil-delete-char
+;;             "X"      'fixup-whitespace))
+
+(use-package ispell
+  :config
+  (setq ispell-program-name "hunspell")
+  (setenv "DICTPATH" "/usr/share/hunspell/en_GB")
+  )
 
 (use-package flycheck
   :init (global-flycheck-mode)
-  :config (setq flycheck-indication-mode nil))
+  :config (setq flycheck-indication-mode nil)
+  :general (:states 'motion
+                    "]c" 'flycheck-next-error
+                    "[c" 'flycheck-previous-error))
 (use-package flycheck-clj-kondo)
 (dolist (checker '(clj-kondo-clj clj-kondo-cljs clj-kondo-cljc clj-kondo-edn))
   (setq flycheck-checkers (cons checker (delq checker flycheck-checkers))))
 
-(defun defx (var)
-  (interactive "s")
-  (insert (format "(def %s %s)" var var)))
+(defun defx* (vars)
+  (let ((len (length vars))
+        (cvar (car-safe vars)))
+    (cond
+     ((= len 1) (insert (format "(def %s %s)" cvar cvar)))
+     ((< 1 len)
+      (insert (format "(def %s %s)\n" cvar cvar))
+      (indent-according-to-mode)
+      (defx* (cdr vars))))))
+
+(defun defx (input)
+  (interactive "svars: ")
+  (defx* (split-string input)))
 
 (use-package clojure-mode
   :config (require 'flycheck-clj-kondo)
@@ -437,12 +577,19 @@ iff it is in a git repo, but untracked."
   (:keymaps 'clojure-mode-map
    :states  'normal
    "gd"     'cider-find-var))
+(defun evil-set-jump-nullary (&rest _) (evil-set-jump))
+(advice-add 'cider-find-var :before #'evil-set-jump-nullary)
 (use-package clojure-mode-extra-font-locking)
 (use-package cider
   :config
   (add-to-list 'exec-path "~/bin/")
   (setq cider-show-error-buffer nil
-        nrepl-hide-special-buffers t)
+        cider-prompt-for-symbol nil
+        nrepl-hide-special-buffers t
+        cider-repl-require-ns-on-set t
+        cider-font-lock-dynamically '(macro core function deprecated var)
+        cider-format-code-options
+        '(("remove-multiple-non-indenting-spaces?" t)))
   :general
   (:keymaps 'cider-mode-map
    "C-n"    'cider-repl-set-ns
@@ -451,6 +598,7 @@ iff it is in a git repo, but untracked."
    "→"      'evil-cider-inspect)
   (:keymaps 'cider-repl-mode-map
    :states '(normal insert)
+   "C-:" 'clojure-toggle-keyword-string
    "¶"   'cider-repl-switch-to-other
    "C-c C-l" 'cider-repl-clear-buffer
    "M-i" 'cider-inspect
@@ -483,7 +631,10 @@ iff it is in a git repo, but untracked."
 (use-package clj-refactor)
 
 (use-package adoc-mode
-  :init (add-to-list 'auto-mode-alist (cons "\\.txt\\'" 'adoc-mode)))
+  :init (setq auto-mode-alist
+              (append auto-mode-alist '(("\\.txt\\'" . adoc-mode)
+                                        ("\\.adoc\\'" . adoc-mode))))
+  :hook (adoc-mode . flyspell-mode))
 
 (use-package css-mode
   :init (setq css-indent-offset 2
@@ -513,6 +664,9 @@ iff it is in a git repo, but untracked."
   :init (add-to-list 'auto-mode-alist '("Dockerfile\\'" . dockerfile-mode)))
 
 (use-package auctex
+  ;; Outside of emacs: sudo pacman -Syu texlive-most
+  ;; Compile tex file with C-c C-c and choose Latex
+  ;; Open PDF in another buffer and do M-x auto-revert-mode
   :config
   (defvar tex-fold-key-mode-map
     (make-keymap) "tex-fold-mode keymap.")
@@ -535,10 +689,13 @@ iff it is in a git repo, but untracked."
 (general-def
   :keymaps '(override normal insert)
   "C-c ESC"    'ignore
+  "£"          'switch-buffer-without-purpose
   "M-£"        'kill-this-buffer
   "C-M-£"      'kill-some-buffers
   "<f3>i"      'open-init
-  "C-a"        'mark-whole-buffer
+  "<f3>b"      'bury-buffer
+  "<f3>m"      'magit-find-file
+  "C-/"        'undo-fu-only-undo
   "<C-up>"     'enlarge-window
   "<C-S-up>"   'enlarge-window
   "<C-down>"   'shrink-window
@@ -559,29 +716,37 @@ iff it is in a git repo, but untracked."
 
 (use-package dired
   :straight nil :ensure nil
-  :general (:states    'normal
-	    :keymaps   'dired-mode-map
-	    "<return>" 'dired-find-file
-	    "w"        'wdired-change-to-wdired-mode
-	    "m"        'dired-next-line
-	    "u"        'dired-previous-line
-	    "n"        'evil-backward-char
-	    "h"        'evil-forward-char
-	    "L"        'dired-unmark
-	    "C-S-l"    'dired-do-load
-	    "<SPC>"    'avy-goto-line)
-  :init (setq dired-listing-switches "-alBh"))
+  :general (:states     'normal
+	    :keymaps    'dired-mode-map
+	    "<return>"  'dired-find-file
+	    "<mouse-1>" 'dired-find-file
+	    "w"         'wdired-change-to-wdired-mode
+	    "m"         'dired-next-line
+	    "u"         'dired-previous-line
+	    "n"         'evil-backward-char
+	    "h"         'evil-forward-char
+	    "L"         'dired-unmark
+	    "C-S-l"     'dired-do-load
+            "I"         'dired-kill-subdir
+	    "<SPC>"     'avy-goto-line)
+  :custom ((dired-listing-switches "-aBgh --group-directories-first")))
+(advice-add 'dired-kill-subdir :around #'all-the-icons-dired--refresh-advice)
 (use-package all-the-icons-dired
   :after (dired)
   :hook (dired-mode . all-the-icons-dired-mode))
+
+(use-package dired-narrow)
 
 (defun dired-local-keys ()
   (general-def
     :keymaps        'local
     :states         'normal
     "l"             'dired-mark
-    "g"             'dired-revert))
+    "g"             'revert-buffer))
 (add-hook 'dired-mode-hook 'dired-local-keys)
+
+(use-package async
+  :config (dired-async-mode 1))
 
 ;; Custom functions
 ;; (defun evil-paste-after-from-zero (count)
@@ -596,39 +761,48 @@ iff it is in a git repo, but untracked."
 ;;   "C-p"             'evil-paste-after-from-zero
 ;;   "C-S-p"           'evil-paste-before-from-zero)
 
-(evil-define-motion evil-search-symbol-forward (count &optional symbol)
-  "Search forward for SYMBOL under point."
-  :jump t
-  :type exclusive
-  (interactive (list (prefix-numeric-value current-prefix-arg)
-                     evil-symbol-word-search))
-  (dotimes (var (or count 1))
-    (evil-search-word t nil t)))
 
-(evil-define-motion evil-search-symbol-backward (count &optional symbol)
-  "Search backward for SYMBOL under point."
-  :jump t
-  :type exclusive
-  (interactive (list (prefix-numeric-value current-prefix-arg)
-                     evil-symbol-word-search))
-  (dotimes (var (or count 1))
-    (evil-search-word nil nil t)))
+;; (evil-define-motion evil-search-symbol-forward (count &optional symbol)
+;;   "Search forward for SYMBOL under point."
+;;   :jump t
+;;   :type exclusive
+;;   (interactive (list (prefix-numeric-value current-prefix-arg)
+;;                      evil-symbol-word-search))
+;;   (dotimes (var (or count 1))
+;;     (evil-search-word t nil t)))
+
+;; (evil-define-motion evil-search-symbol-backward (count &optional symbol)
+;;   "Search backward for SYMBOL under point."
+;;   :jump t
+;;   :type exclusive
+;;   (interactive (list (prefix-numeric-value current-prefix-arg)
+;;                      evil-symbol-word-search))
+;;   (dotimes (var (or count 1))
+;;     (evil-search-word nil nil t)))
 
 (general-def
   :states '(normal motion visual)
-  "*"     'evil-search-symbol-forward
-  "M-*"   'evil-search-word-forward
-  "#"     'evil-search-symbol-backward
-  "M-#"   'evil-search-word-backward)
+  "M-*"   (lambda (&optional count) (interactive "p") (evil-search-word-forward count nil))
+  "M-#"   (lambda (&optional count) (interactive "p") (evil-search-word-backward count nil)))
 
 (defun evil-execute-q-macro (count)
   "Execute the q macro, the only one I use"
   (interactive "P<x>") (evil-execute-macro count "@q"))
 (general-def 'normal "Q" 'evil-execute-q-macro)
 
+(evil-define-operator evil-narrow-region (beg end)
+  "Indirectly narrow the region from BEG to END."
+  (interactive "<r>")
+  (evil-normal-state)
+  (narrow-to-region beg end))
+(general-def
+  :states '(normal visual)
+  "M-n" 'evil-narrow-region
+  "M-N" 'widen)
+
 ;; Differentiate C-m from RET
-(when (display-graphic-p)
-  (general-def input-decode-map [?\C-m] [C-m]))
+;; (when (display-graphic-p)
+;;   (general-def input-decode-map [?\C-m] [C-m]))
 
 (defun repl-local-keys ()
   (general-def
@@ -647,6 +821,7 @@ iff it is in a git repo, but untracked."
     "<return>" 'ivy-occur-press-and-switch))
 
 (add-hook 'ivy-occur-grep-mode-hook 'ivy-occur-local-keys)
+(use-package wgrep)
 
 (general-unbind '(normal motion) "C-e")
 (general-unbind :keymaps '(evil-mc-key-map evil-normal-state-map) "C-n")
@@ -654,11 +829,13 @@ iff it is in a git repo, but untracked."
 (general-def
   :keymaps 'cider-mode-map
   "C-e"    'evil-cider-eval
-  "C-n"    'cider-repl-set-ns)
+  "C-n"    'cider-repl-set-ns
+  "M-c"    'cider-pprint-eval-defun-to-comment
+  "M-C"    'cider-pprint-eval-last-sexp-to-comment)
 
 (defun collapse-comments ()
   (interactive)
-  (evil-ex "global/(comment/normal zc"))
+  (evil-ex "global/\\(comment/normal zc"))
 
 (setq truncate-partial-width-windows t)
 (defun truncate-partial-width-windows-50 ()
@@ -667,6 +844,7 @@ iff it is in a git repo, but untracked."
       (setq truncate-partial-width-windows 50)
     (setq truncate-partial-width-windows t)))
 (general-def "<f6>" 'truncate-partial-width-windows-50)
+(general-def "S-<f6>" 'visual-line-mode)
 
 (defun lein-clean ()
   (interactive)
@@ -683,3 +861,120 @@ iff it is in a git repo, but untracked."
 	    "C-c k h" 'kaocha-runner-hide-windows))
 
 (use-package graphql-mode)
+
+(use-package markdown-mode
+  :mode (("README\\.md\\'" . gfm-mode)
+         ("\\.md\\'" . markdown-mode)
+         ("\\.markdown\\'" . markdown-mode)))
+
+(use-package treemacs
+  :general (:keymaps 'normal "C-t" 'treemacs))
+
+;; (when-let ((bash-path (executable-find "bash")))
+;;   (setenv "SHELL" bash-path)
+;;   (setq-default explicit-shell-file-name bash-path
+;;                 shell-file-name bash-path))
+
+(evil-define-operator sort-graph-fields (beg end)
+  (interactive "<r>")
+  (sort-regexp-fields nil "[[:graph:]]+" "" beg end))
+
+(evil-define-operator sort-graph-fields-reverse (beg end)
+  (interactive "<r>")
+  (sort-regexp-fields t "[[:graph:]]+" "" beg end))
+
+(evil-define-operator evil-sort-lines (beg end)
+  (interactive "<r>")
+  (sort-lines nil beg end))
+
+(evil-define-operator evil-sort-lines-reverse (beg end)
+  (interactive "<r>")
+  (sort-lines t beg end))
+
+(general-def :states 'normal "gs" 'sort-graph-fields)
+(general-def :states 'normal "gS" 'sort-graph-fields-reverse)
+(general-def :states 'normal "gl" 'evil-sort-lines)
+(general-def :states 'normal "gL" 'evil-sort-lines-reverse)
+
+(use-package erc
+  :custom (erc-server "irc.libera.chat"
+                      erc-fill-function #'erc-fill-static
+                      erc-fill-column 100))
+
+(use-package yaml-mode)
+
+(evil-define-command evil-delete-registers (registers &optional force)
+  (interactive "<a><!>")
+  (when (and force registers) (user-error "Invlaid input"))
+  (let ((reg-chars (if force
+                       (number-sequence ?a ?z)
+                     (evil--parse-delmarks (remove ?\s (append registers nil))))))
+    (dolist (reg-char reg-chars)
+      (set-register reg-char nil))))
+(evil-ex-define-cmd "delr[egisters]" 'evil-delete-registers)
+
+(use-package pcre2el)
+
+(defun minibuffer-evil ()
+  (interactive)
+  (evil-local-mode 1)
+  (evil-initialize-state))
+(define-key evil-ex-completion-map "\C-f" 'minibuffer-evil)
+
+(evil-define-command evil-use-black-hole-register ()
+  "Use `_' register."
+  (interactive)
+  (setq this-command 'evil-use-register
+        evil-this-register ?_))
+(general-def :states 'normal :keymaps 'evil-cleverparens-mode-map
+  "-" #'evil-use-black-hole-register)
+
+(defun improve-c-o-e (&rest _)
+  "Make e and E reach past the end of the word/WORD after C-o."
+  (when (and (eq 'evil-execute-in-normal-state last-command)
+             (not (evil-operator-state-p)))
+    (evil-forward-char)))
+(advice-add 'evil-forward-word-end :after #'improve-c-o-e)
+(advice-add 'evil-cp-forward-symbol-end :after #'improve-c-o-e)
+
+(defun js-console-log (var)
+  (interactive "svar: ")
+  (insert (format "(js/console.log \"%s: \" %s)" var var)))
+(general-def :states '(normal insert) :keymaps 'smartparens-mode-map
+  "M-j" #'js-console-log)
+
+;; Some evil-cleverparens commands should respect evil-start-of-line...
+(defun evil-ensure-advice (fn &rest args)
+  (if (eq 'line (nth 2 args))
+      (evil-ensure-column
+        (apply fn args))
+    (apply fn args)))
+(advice-add 'evil-cp-delete :around #'evil-ensure-advice)
+
+(use-package restclient
+  :init (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode)))
+
+(use-package inf-ruby
+  :hook (ruby-mode . inf-ruby-minor-mode))
+
+(use-package flymake-ruby
+  :hook (ruby-mode . flymake-ruby-load))
+
+(use-package json-navigator)
+
+;; Not working
+(use-package yari
+  :general (:states 'normal :keymaps 'ruby-mode "N" 'yari))
+
+(use-package kotlin-mode)
+
+(use-package typescript-mode)
+
+(use-package embark
+  :general ("<f8>" #'embark-act))
+
+(use-package pdf-tools)
+
+;; Useful for testing
+;; emacs -Q -L "path/to/evil" -l "path/to/evil.el" -l "path/to/evil-unimpaired.el" --eval "(evil-mode 1)" --eval "(evil-unimpaired-mode)"
+
