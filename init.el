@@ -54,7 +54,7 @@
   :config (setq calendar-week-start-day 1)
   :custom (warning-minimum-level :error)
   :general (:states '(normal visual)
-            :keymaps '(override global)
+            :keymaps 'override
             "M-l"    'linum-mode))
 
 (use-package zerodark-theme
@@ -95,9 +95,8 @@
 (use-package undo-fu)
 
 (use-package goto-chg
-  :general (:keymaps 'global
-                     "M-;" 'goto-last-change
-                     "M-," 'goto-last-change-reverse))
+  :general ("M-;" 'goto-last-change
+            "M-," 'goto-last-change-reverse))
 
 (use-package evil
   :init
@@ -209,8 +208,9 @@
 
 (use-package which-key
   :init (setq which-key-popup-type 'minibuffer)
-  :general ("<f1>" 'which-key-show-top-level
-            "<f2>" 'which-key-show-major-mode)
+  :general (:keymaps 'override
+                     "<f1>" 'which-key-show-top-level
+                     "<f2>" 'which-key-show-major-mode)
   :config (which-key-mode))
 
 (use-package smex)
@@ -228,7 +228,7 @@
   ("M-x"   'counsel-M-x
    "C-h v" 'counsel-describe-variable
    "C-h f" 'counsel-describe-function)
-  (:states '(global motion insert)
+  (:keymaps 'override
    "<f3>r" 'recentf-without-purpose
    "<f3>g" 'counsel-git
    "<f3>l" 'counsel-locate
@@ -263,7 +263,7 @@
   (advice-add 'keyboard-escape-quit :around #'my-keyboard-escape-quit))
 
 (use-package window-purpose
-  :general (:states    '(global motion insert)
+  :general (:keymaps   'override
 	    "£"        'switch-buffer-without-purpose
 	    "C-£"      'purpose-switch-buffer-with-purpose
 	    "<f3><f3>" 'find-file-without-purpose
@@ -308,13 +308,7 @@
 	    "<C-m>"    'magit-merge ;; This will bind RET in terminal mode
 	    "<return>" 'magit-visit-thing
 	    "SPC"      'avy-goto-asterisk
-	    "<C-tab>"  'ace-window
-	    "£"        'switch-buffer-without-purpose
-            "<f2>"     'which-key-show-major-mode
-	    "<f3><f3>" 'find-file-without-purpose
-	    "<f3>g"    'counsel-git
-	    "<f3>p"    'purpose-find-file-overload
-	    "<f3>r"    'recentf-without-purpose)
+	    "<C-tab>"  'ace-window)
   (:keymaps 'magit-file-section-map
             "<return>" 'magit-diff-visit-file-other-window)
   (:keymaps '(global normal visual)
@@ -369,7 +363,7 @@ iff it is in a git repo, but untracked."
   (setq zoom-size '(110 . 0.6))
   (custom-set-variables
    '(zoom-mode t))
-  :general (:keymaps '(override normal insert) "<f5>" 'zoom-mode))
+  :general (:keymaps 'override "<f5>" 'zoom-mode))
 
 (use-package windmove
   :config (windmove-default-keybindings))
@@ -687,9 +681,8 @@ iff it is in a git repo, but untracked."
 
 ;; Non-package-specific rebindings
 (general-def
-  :keymaps '(override normal insert)
+  :keymaps 'override
   "C-c ESC"    'ignore
-  "£"          'switch-buffer-without-purpose
   "M-£"        'kill-this-buffer
   "C-M-£"      'kill-some-buffers
   "<f3>i"      'open-init
