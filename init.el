@@ -46,16 +46,26 @@
 (setq auto-revert-interval 1)
 (setq-default indent-tabs-mode nil)
 (setq-default calc-multiplication-has-precedence nil)
-(defalias 'yes-or-no-p 'y-or-n-p)
+(setq use-short-answers t)
+(setq inhibit-startup-screen t)
+(setq eval-expression-print-length nil
+      eval-expression-print-level nil)
+(setq x-selection-timeout 500)
+
+(setq-default abbrev-mode t)
+(read-abbrev-file "~/.abbrev_defs")
+(setq save-abbrevs t)
 
 (use-package general)
 
 (use-package emacs
   :config (setq calendar-week-start-day 1)
-  :custom (warning-minimum-level :error)
+  :custom
+  (warning-minimum-level :error)
+  (xref-show-definitions-function #'xref-show-definitions-buffer-at-bottom)
   :general (:states '(normal visual)
             :keymaps 'override
-            "M-l"    'linum-mode))
+            "M-l"    'display-line-numbers-mode))
 
 (use-package zerodark-theme
   :config
@@ -109,8 +119,11 @@
         evil-want-C-g-bindings t
         evil-want-Y-yank-to-eol t
         evil-want-C-w-in-emacs-state t
+        evil-want-keybinding nil
         evil-want-C-u-scroll t
-        evil-v$-excludes-newline t)
+        evil-transient-mouse-selection t
+        evil-v$-excludes-newline t
+        evil-want-fine-undo t)
   (evil-mode 1)
   (setq-default evil-symbol-word-search t)
   :general (:states           '(normal motion visual)
@@ -121,23 +134,29 @@
             "N"               'evil-lookup
             "k"               'evil-ex-search-next
             "K"               'evil-ex-search-previous
+            "j"               'undo-only
             "l"               'evil-set-marker
-            "j"               'undo-fu-only-undo
-            "C-r"             'undo-fu-only-redo
             "<S-tab>"         'evil-jump-backward
             "<S-iso-lefttab>" 'evil-jump-backward
             "<return>"        'evil-ex-nohighlight)
   (:states 'normal
    "g." (kbd "/ C-r \" <return> cgn C-@"))
   (:keymaps 'org-mode-map :states 'normal "o" (kbd "A <return>"))
+  :custom (evil-undo-system 'undo-redo)
   :config (evil-select-search-module 'evil-search-module 'evil-search))
+
+;; (use-package evil-collection
+;;   :after evil
+;;   :ensure t
+;;   :config
+;;   (with-eval-after-load 'dired (evil-collection-dired-setup)))
 
 ;(use-package targets
 ;  :straight (:host github :repo "noctuid/targets.el" :branch "master")
 ;  :config (targets-setup t :last-key "L" :next-key "N"))
 
 (use-package evil-matchit
-  :config (global-evil-matchit-mode 1))
+  :hook (prog-mode . evil-matchit-mode))
 
 (use-package evil-anzu
   :init (global-anzu-mode))
@@ -145,12 +164,17 @@
 (use-package evil-exchange
   :general (:states '(normal visual) "gx" 'evil-exchange))
 
-(use-package evil-unimpaired
-  :straight (:host github :repo "zmaas/evil-unimpaired")
-  :hook (prog-mode . evil-unimpaired-mode))
+;; (use-package evil-unimpaired
+;;   :straight (:host github :repo "zmaas/evil-unimpaired")
+;;   :hook (prog-mode . evil-unimpaired-mode))
 
 (use-package evil-commentary
   :hook (prog-mode . evil-commentary-mode))
+
+(use-package evil-lion)
+
+;; (use-package evil-nerd-commenter
+;;   :hook (prog-mode . evil-nerd))
 
 (use-package evil-fringe-mark
   :hook (prog-mode . evil-fringe-mark-mode)
@@ -228,7 +252,7 @@
   ("M-x"   'counsel-M-x
    "C-h v" 'counsel-describe-variable
    "C-h f" 'counsel-describe-function)
-  (:keymaps 'override
+  (:keymaps '(motion override)
    "<f3>r" 'recentf-without-purpose
    "<f3>g" 'counsel-git
    "<f3>l" 'counsel-locate
@@ -239,7 +263,7 @@
 (use-package avy
   :config (setq avy-keys '(?n ?t ?i ?e ?o ?s ?h ?a ?g ?y ?l ?w ?r ?d)
 		avy-background t)
-  :general (:states '(motion normal) "SPC" 'avy-goto-char))
+  :general (:states '(normal visual motion) "SPC" 'avy-goto-char))
 
 (use-package company
   :config
@@ -382,6 +406,13 @@ iff it is in a git repo, but untracked."
   (setq ccm-recenter-at-end-of-file t
         scroll-conservatively 101))
 
+; (use-package centered-cursor-mode
+;   :config
+;   (setq ccm-recenter-at-end-of-file t)
+;   (global-centered-cursor-mode)
+;   :general ("<f8>" 'centered-cursor-mode))
+; (setq scroll-conservatively 101)
+
 (use-package projectile)
 (use-package projectile-git-autofetch
   :init (projectile-git-autofetch-mode 1)
@@ -413,18 +444,24 @@ iff it is in a git repo, but untracked."
 ;; Use anonymous start buffer
 (defun anon-note ()
   (interactive)
-  (get-buffer-create "**"))
+  (prog1 (get-buffer-create "**")
+    (split-window-right)))
 (setq initial-buffer-choice 'anon-note)
 
 (use-package hi-lock
   :config (set-face-attribute 'hi-yellow nil :background "#4e5565" :foreground "#abb2bf"))
-(use-package highlight-thing
-  :init (global-highlight-thing-mode)
-  :hook (magit-mode . (lambda () (highlight-thing-mode -1)))
-  :config (setq highlight-thing-delay-seconds 0.3
-                highlight-thing-exclude-thing-under-point t
-                highlight-thing-all-visible-buffers-p t)
-  :general (:states 'normal "C-8" 'highlight-thing-mode))
+;; Formerly hl-thing or highlight-thing mode
+(use-package idle-highlight-mode
+  :custom
+  (idle-highlight-exclude-point t)
+  (idle-highlight-exceptions-face nil)
+  :config (setq idle-highlight-idle-time 0.3
+                idle-highlight-visible-buffers t)
+  :hook ((prog-mode text-mode) . idle-highlight-mode)
+  :general (:states 'normal "C-8" 'idle-highlight-mode))
+
+(use-package hl-todo
+  :config (global-hl-todo-mode))
 
 (use-package midnight)
 
@@ -451,6 +488,19 @@ iff it is in a git repo, but untracked."
                                               (todo priority-down todo-state-up category-keep)
                                               (tags priority-down category-keep)
                                               (search category-keep))))
+
+(defun insert-current-date ()
+  "Insert the current date in format YYYY-MM-DD."
+  (interactive)
+  (insert (format-time-string "%Y-%m-%d")))
+(general-def '(motion insert) "\C-c TAB" 'insert-current-date)
+
+
+(defun first-non-blank-org (&rest args)
+  (when (and (derived-mode-p 'org-mode)
+             (looking-at "\\*+"))
+    (skip-chars-forward "* ")))
+(advice-add 'evil-first-non-blank :after #'first-non-blank-org)
 
 (use-package org-bullets
   :hook (org-mode . org-bullets-mode))
@@ -491,24 +541,23 @@ iff it is in a git repo, but untracked."
   :custom
   (evil-cleverparens-use-additional-bindings nil)
   (evil-cleverparens-use-additional-movement-keys nil)
-  :general (:states  '(normal visual)
+  :general (:states  '(normal motion visual)
             :keymaps '(global evil-cleverparens-mode-map)
             "{"      'evil-backward-paragraph
             "}"      'evil-forward-paragraph
             "M-l"    nil
             "x"      'evil-delete-char
             "X"      'fixup-whitespace
-            "("      'evil-previous-open-paren
-            ")"      'evil-next-close-paren
-            "["      nil
-            "]"      nil
+            "("      'evil-cp-backward-up-sexp
+            ")"      'evil-cp-up-sexp
             "M-w"    'evil-forward-WORD-begin
             "<f9>"   'evil-cleverparens-mode)
            (:states  'motion
             "]]"     'evil-cp-next-closing
             "]["     'evil-cp-next-opening
             "[["     'evil-cp-previous-opening
-            "[]"     'evil-cp-previous-closing))
+            "[]"     'evil-cp-previous-closing)
+   :config (evil-define-key 'normal evil-cleverparens-mode-map "s" nil "S" nil))
 (general-def "M-l" 'linum-mode)
 
 ;; (use-package lispy
@@ -533,14 +582,14 @@ iff it is in a git repo, but untracked."
 (use-package ispell
   :config
   (setq ispell-program-name "hunspell")
-  (setenv "DICTPATH" "/usr/share/hunspell/en_GB")
-  )
+  (setenv "DICTPATH" "/usr/share/hunspell/en_GB"))
 
 (use-package flycheck
   :init (global-flycheck-mode)
   :config (setq flycheck-indication-mode nil)
   :general (:states 'motion
-                    "]c" 'flycheck-next-error
+                    "]c" 'flycheck-next-error ;; TODO set :repeat type to motion
+                                              ;; TODO test on 1st line of buffer
                     "[c" 'flycheck-previous-error))
 (use-package flycheck-clj-kondo)
 (dolist (checker '(clj-kondo-clj clj-kondo-cljs clj-kondo-cljc clj-kondo-edn))
@@ -567,10 +616,7 @@ iff it is in a git repo, but untracked."
    "C-j"    'cider-jack-in-clj&cljs
    "C-S-r"  'lsp-rename
    "ð"      'defx
-   "C-ð"    'defx)
-  (:keymaps 'clojure-mode-map
-   :states  'normal
-   "gd"     'cider-find-var))
+   "C-ð"    'defx))
 (defun evil-set-jump-nullary (&rest _) (evil-set-jump))
 (advice-add 'cider-find-var :before #'evil-set-jump-nullary)
 (use-package clojure-mode-extra-font-locking)
@@ -637,6 +683,10 @@ iff it is in a git repo, but untracked."
 (use-package scss-mode
   :init (add-to-list 'auto-mode-alist '("\\.scss\\'" . scss-mode)))
 
+(use-package lsp-mode)
+(use-package lsp-java :config (add-hook 'java-mode-hook 'lsp))
+(use-package lsp-treemacs)
+
 ;; (use-package lsp-mode
 ;;   :config
 ;;   (setq lsp-enable-snippet nil
@@ -683,10 +733,10 @@ iff it is in a git repo, but untracked."
 (general-def
   :keymaps 'override
   "C-c ESC"    'ignore
-  "M-£"        'kill-this-buffer
+  "M-£"        'bury-buffer
   "C-M-£"      'kill-some-buffers
   "<f3>i"      'open-init
-  "<f3>b"      'bury-buffer
+  "<f3>k"      'kill-this-buffer
   "<f3>m"      'magit-find-file
   "C-/"        'undo-fu-only-undo
   "<C-up>"     'enlarge-window
@@ -741,47 +791,10 @@ iff it is in a git repo, but untracked."
 (use-package async
   :config (dired-async-mode 1))
 
-;; Custom functions
-;; (defun evil-paste-after-from-zero (count)
-;;   "Paste after from yank register, rather than unnamed register"
-;;   (interactive "P<x>") (evil-paste-after count ?0))
-;; (defun evil-paste-before-from-zero (count)
-;;   "Paste before from yank register, rather than unnamed register"
-;;   (interactive "P<x>") (evil-paste-before count ?0))
-;; (general-def
-;;   :states           '(normal visual)
-;;   :keymaps          '(global evil-mc-key-map)
-;;   "C-p"             'evil-paste-after-from-zero
-;;   "C-S-p"           'evil-paste-before-from-zero)
-
-
-;; (evil-define-motion evil-search-symbol-forward (count &optional symbol)
-;;   "Search forward for SYMBOL under point."
-;;   :jump t
-;;   :type exclusive
-;;   (interactive (list (prefix-numeric-value current-prefix-arg)
-;;                      evil-symbol-word-search))
-;;   (dotimes (var (or count 1))
-;;     (evil-search-word t nil t)))
-
-;; (evil-define-motion evil-search-symbol-backward (count &optional symbol)
-;;   "Search backward for SYMBOL under point."
-;;   :jump t
-;;   :type exclusive
-;;   (interactive (list (prefix-numeric-value current-prefix-arg)
-;;                      evil-symbol-word-search))
-;;   (dotimes (var (or count 1))
-;;     (evil-search-word nil nil t)))
-
 (general-def
   :states '(normal motion visual)
   "M-*"   (lambda (&optional count) (interactive "p") (evil-search-word-forward count nil))
   "M-#"   (lambda (&optional count) (interactive "p") (evil-search-word-backward count nil)))
-
-(defun evil-execute-q-macro (count)
-  "Execute the q macro, the only one I use"
-  (interactive "P<x>") (evil-execute-macro count "@q"))
-(general-def 'normal "Q" 'evil-execute-q-macro)
 
 (evil-define-operator evil-narrow-region (beg end)
   "Indirectly narrow the region from BEG to END."
@@ -814,14 +827,15 @@ iff it is in a git repo, but untracked."
     "<return>" 'ivy-occur-press-and-switch))
 
 (add-hook 'ivy-occur-grep-mode-hook 'ivy-occur-local-keys)
-(use-package wgrep)
+(use-package wgrep
+  :custom (wgrep-auto-save-buffer t))
 
-(general-unbind '(normal motion) "C-e")
+;(general-unbind '(normal motion) "C-e")
 (general-unbind :keymaps '(evil-mc-key-map evil-normal-state-map) "C-n")
 
 (general-def
   :keymaps 'cider-mode-map
-  "C-e"    'evil-cider-eval
+  ;"C-e"    'evil-cider-eval
   "C-n"    'cider-repl-set-ns
   "M-c"    'cider-pprint-eval-defun-to-comment
   "M-C"    'cider-pprint-eval-last-sexp-to-comment)
@@ -858,6 +872,7 @@ iff it is in a git repo, but untracked."
 (use-package markdown-mode
   :mode (("README\\.md\\'" . gfm-mode)
          ("\\.md\\'" . markdown-mode)
+         ("\\.mdx\\'" . markdown-mode)
          ("\\.markdown\\'" . markdown-mode)))
 
 (use-package treemacs
@@ -889,11 +904,6 @@ iff it is in a git repo, but untracked."
 (general-def :states 'normal "gl" 'evil-sort-lines)
 (general-def :states 'normal "gL" 'evil-sort-lines-reverse)
 
-(use-package erc
-  :custom (erc-server "irc.libera.chat"
-                      erc-fill-function #'erc-fill-static
-                      erc-fill-column 100))
-
 (use-package yaml-mode)
 
 (evil-define-command evil-delete-registers (registers &optional force)
@@ -919,7 +929,8 @@ iff it is in a git repo, but untracked."
   (interactive)
   (setq this-command 'evil-use-register
         evil-this-register ?_))
-(general-def :states 'normal :keymaps 'evil-cleverparens-mode-map
+
+(general-def :states '(normal visual) :keymaps 'evil-cleverparens-mode-map
   "-" #'evil-use-black-hole-register)
 
 (defun improve-c-o-e (&rest _)
@@ -935,14 +946,6 @@ iff it is in a git repo, but untracked."
   (insert (format "(js/console.log \"%s: \" %s)" var var)))
 (general-def :states '(normal insert) :keymaps 'smartparens-mode-map
   "M-j" #'js-console-log)
-
-;; Some evil-cleverparens commands should respect evil-start-of-line...
-(defun evil-ensure-advice (fn &rest args)
-  (if (eq 'line (nth 2 args))
-      (evil-ensure-column
-        (apply fn args))
-    (apply fn args)))
-(advice-add 'evil-cp-delete :around #'evil-ensure-advice)
 
 (use-package restclient
   :init (add-to-list 'auto-mode-alist '("\\.http\\'" . restclient-mode)))
@@ -963,11 +966,32 @@ iff it is in a git repo, but untracked."
 
 (use-package typescript-mode)
 
-(use-package embark
-  :general ("<f8>" #'embark-act))
+(use-package pdf-tools
+  :mode ("\\.pdf\\'" . pdf-view-mode)
+  :magic ("%PDF" . pdf-view-mode)
+  :config (pdf-tools-install :no-query)
+  :hook (pdf-view-mode . pdf-view-fit-page-to-window))
 
-(use-package pdf-tools)
+(use-package digit-groups
+  :hook
+  (prog-mode . digit-groups-mode)
+  (cider-repl-mode . digit-groups-mode))
+
+;; For ZMK keymaps
+(font-lock-add-keywords 'c-mode
+                        '(("\\(&\\sw+\\)"
+                           (1 'font-lock-keyword-face))))
+
+(use-package rust-mode)
+
+;; (use-package explain-pause-mode
+;;   :straight (explain-pause-mode :type git :host github :repo "lastquestion/explain-pause-mode")
+;;   :config
+;;   (explain-pause-mode))
 
 ;; Useful for testing
 ;; emacs -Q -L "path/to/evil" -l "path/to/evil.el" -l "path/to/evil-unimpaired.el" --eval "(evil-mode 1)" --eval "(evil-unimpaired-mode)"
+
+;; When sbcl is installed
+;; (setq inferior-lisp-program "/usr/bin/sbcl")
 
