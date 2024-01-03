@@ -53,7 +53,8 @@
 (setq x-selection-timeout 500)
 
 (setq-default abbrev-mode t)
-(read-abbrev-file "~/.abbrev_defs")
+(when (file-exists-p "~/.abbrev_defs")
+  (read-abbrev-file "~/.abbrev_defs"))
 (setq save-abbrevs t)
 
 (use-package general)
@@ -533,7 +534,6 @@ iff it is in a git repo, but untracked."
 	    "C-<"   'sp-backward-barf-sexp))
 
 (use-package evil-cleverparens
-  :straight (:host github :repo "luxbock/evil-cleverparens" :fork "corasaurus-hex/evil-cleverparens" :branch "master")
   :init (setq evil-cleverparens-use-regular-insert t)
   :hook
   (prog-mode . evil-cleverparens-mode)
